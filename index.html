@@ -1171,19 +1171,51 @@
         // DASHBOARD TIMONEL
         function renderDashboardTimonel() {
             const sesiones = DB.get('sesiones') || [];
+            const users = DB.get('users') || [];
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
             const hoy = new Date().toISOString().split('T')[0];
             
-            // Filtrar sesiones según el rol
-            let todasMisSesiones;
-            if (currentUser.role === 'timonel') {
-                todasMisSesiones = sesiones.filter(s => s.timonelId === currentUser.id || s.timonel2Id === currentUser.id);
-            } else if (currentUser.role === 'auxiliar') {
-                todasMisSesiones = sesiones.filter(s => s.auxiliarId === currentUser.id || s.auxiliar2Id === currentUser.id);
-            } else if (currentUser.role === 'zodiac') {
-                todasMisSesiones = sesiones.filter(s => s.zodiacId === currentUser.id);
-            } else {
-                todasMisSesiones = [];
-            }
+            // Encontrar todas las sesiones donde el usuario actual esté asignado en CUALQUIER rol
+            // Comparar por username para detectar la misma persona en diferentes tablas
+            const todasMisSesiones = sesiones.map(s => {
+                const rolesEnSesion = [];
+                
+                // Verificar si es timonel principal
+                const timonel1 = users.find(u => u.id === s.timonelId);
+                if (timonel1 && timonel1.username === currentUser.username) {
+                    rolesEnSesion.push('timonel1');
+                }
+                
+                // Verificar si es timonel secundario
+                const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
+                if (timonel2 && timonel2.username === currentUser.username) {
+                    rolesEnSesion.push('timonel2');
+                }
+                
+                // Verificar si es auxiliar principal
+                const aux1 = auxiliares.find(a => a.id === s.auxiliarId);
+                if (aux1 && aux1.username === currentUser.username) {
+                    rolesEnSesion.push('auxiliar1');
+                }
+                
+                // Verificar si es auxiliar secundario
+                const aux2 = s.auxiliar2Id ? auxiliares.find(a => a.id === s.auxiliar2Id) : null;
+                if (aux2 && aux2.username === currentUser.username) {
+                    rolesEnSesion.push('auxiliar2');
+                }
+                
+                // Verificar si es zodiac
+                const zod = zodiac.find(z => z.id === s.zodiacId);
+                if (zod && zod.username === currentUser.username) {
+                    rolesEnSesion.push('zodiac');
+                }
+                
+                return {
+                    ...s,
+                    misRoles: rolesEnSesion
+                };
+            }).filter(s => s.misRoles.length > 0); // Solo sesiones donde tenga al menos un rol
             
             // Separar sesiones en tres grupos
             const sesionesHoy = todasMisSesiones.filter(s => s.fecha === hoy);
@@ -1193,27 +1225,50 @@
             const renderSesion = (s, esHoy) => {
                 const asist = DB.get('asistencias') || [];
                 const tieneAsistencia = asist.some(a => a.sesionId === s.id);
-                const users = DB.get('users') || [];
-                const auxiliares = DB.get('auxiliares') || [];
-                const zodiac = DB.get('zodiac') || [];
-                const barcos = DB.get('barcos') || [];
                 const timonel = users.find(u => u.id === s.timonelId);
                 const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
                 const auxiliar = auxiliares.find(a => a.id === s.auxiliarId);
                 const auxiliar2 = s.auxiliar2Id ? auxiliares.find(a => a.id === s.auxiliar2Id) : null;
                 const zodiacPersona = zodiac.find(z => z.id === s.zodiacId);
+                const barcos = DB.get('barcos') || [];
                 const barco = barcos.find(b => b.id === s.barcoId);
                 const incidencias = DB.get('incidencias') || [];
                 const tieneIncidencia = incidencias.some(inc => inc.sesionId === s.id);
                 
-                // Verificar si el usuario actual es timonel de esta sesión (solo timoneles pueden editar)
-                const esMiSesionComoTimonel = currentUser.role === 'timonel' && (s.timonelId === currentUser.id || s.timonel2Id === currentUser.id);
+                // Determinar si puede editar (solo timoneles pueden editar)
+                const esMiSesionComoTimonel = s.misRoles.includes('timonel1') || s.misRoles.includes('timonel2');
+                
+                // Generar badges de roles con colores distintivos
+                const rolesHTML = s.misRoles.map(rol => {
+                    const rolesConfig = {
+                        'timonel1': { texto: '👤 Timonel Principal', color: 'bg-blue-100 text-blue-700 border-2 border-blue-400' },
+                        'timonel2': { texto: '👤 Timonel 2', color: 'bg-blue-100 text-blue-600 border-2 border-blue-300' },
+                        'auxiliar1': { texto: '🆘 Auxiliar Principal', color: 'bg-green-100 text-green-700 border-2 border-green-400' },
+                        'auxiliar2': { texto: '🆘 Auxiliar 2', color: 'bg-green-100 text-green-600 border-2 border-green-300' },
+                        'zodiac': { texto: '🚤 Zodiac', color: 'bg-orange-100 text-orange-700 border-2 border-orange-400' }
+                    };
+                    const config = rolesConfig[rol];
+                    return `<span class="px-3 py-1 ${config.color} rounded-full text-sm font-bold">${config.texto}</span>`;
+                }).join(' ');
+                
+                // Color de borde según el rol principal
+                let borderColor = 'border-gray-200';
+                if (s.misRoles.includes('timonel1') || s.misRoles.includes('timonel2')) {
+                    borderColor = 'border-blue-400';
+                } else if (s.misRoles.includes('auxiliar1') || s.misRoles.includes('auxiliar2')) {
+                    borderColor = 'border-green-400';
+                } else if (s.misRoles.includes('zodiac')) {
+                    borderColor = 'border-orange-400';
+                }
                 
                 return `
-                <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-2xl transition ${s.cerrada ? 'bg-gray-100' : ''} ${!esHoy ? 'opacity-75' : ''}">
+                <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-2xl transition border-4 ${borderColor} ${s.cerrada ? 'bg-gray-100' : ''} ${!esHoy ? 'opacity-75' : ''}">
                     <div class="flex justify-between items-start mb-4">
                         <div>
-                            <h3 class="text-3xl font-bold mb-1">${s.nombre || s.tipo}</h3>
+                            <h3 class="text-3xl font-bold mb-2">${s.nombre || s.tipo}</h3>
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                ${rolesHTML}
+                            </div>
                             <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">${s.tipo}</span>
                         </div>
                         <div class="flex flex-col gap-2">
@@ -1259,11 +1314,12 @@
             `;
             };
 
-            const rolTexto = currentUser.role === 'timonel' ? 'Timonel' : currentUser.role === 'auxiliar' ? 'Auxiliar' : 'Zodiac';
-
             return `
                 <div class="container mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-6">Mis Sesiones (${rolTexto})</h2>
+                    <div class="mb-6">
+                        <h2 class="text-4xl font-bold mb-2">Mis Sesiones</h2>
+                        <p class="text-gray-600">Sesiones donde estás asignado en cualquier rol (Timonel, Auxiliar o Zodiac)</p>
+                    </div>
                     
                     ${sesionesFuturas.length > 0 ? `
                         <div class="mb-8">
@@ -2957,35 +3013,51 @@
             const zodiacId = document.getElementById('sZodiac').value ? parseInt(document.getElementById('sZodiac').value) : null;
             
             // VALIDACIÓN: La misma persona no puede estar en varios roles en la misma sesión
-            const personasAsignadas = [];
-            if (timonelId) personasAsignadas.push({id: timonelId, rol: 'Timonel'});
-            if (timonel2Id) personasAsignadas.push({id: timonel2Id, rol: 'Timonel 2'});
-            if (auxiliarId) personasAsignadas.push({id: auxiliarId, rol: 'Auxiliar'});
-            if (auxiliar2Id) personasAsignadas.push({id: auxiliar2Id, rol: 'Auxiliar 2'});
-            if (zodiacId) personasAsignadas.push({id: zodiacId, rol: 'Zodiac'});
+            // Comparar por username (no por ID) para detectar la misma persona en diferentes tablas
+            const users = DB.get('users') || [];
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
             
-            // Buscar duplicados
-            const idsCounted = {};
+            const personasAsignadas = [];
+            
+            if (timonelId) {
+                const t = users.find(u => u.id === timonelId);
+                if (t) personasAsignadas.push({username: t.username, nombre: t.nombre, rol: 'Timonel'});
+            }
+            if (timonel2Id) {
+                const t2 = users.find(u => u.id === timonel2Id);
+                if (t2) personasAsignadas.push({username: t2.username, nombre: t2.nombre, rol: 'Timonel 2'});
+            }
+            if (auxiliarId) {
+                const a = auxiliares.find(aux => aux.id === auxiliarId);
+                if (a) personasAsignadas.push({username: a.username, nombre: a.nombre, rol: 'Auxiliar'});
+            }
+            if (auxiliar2Id) {
+                const a2 = auxiliares.find(aux => aux.id === auxiliar2Id);
+                if (a2) personasAsignadas.push({username: a2.username, nombre: a2.nombre, rol: 'Auxiliar 2'});
+            }
+            if (zodiacId) {
+                const z = zodiac.find(zod => zod.id === zodiacId);
+                if (z) personasAsignadas.push({username: z.username, nombre: z.nombre, rol: 'Zodiac'});
+            }
+            
+            // Buscar duplicados por username
+            const usernamesCounted = {};
             for (const persona of personasAsignadas) {
-                if (!idsCounted[persona.id]) {
-                    idsCounted[persona.id] = [persona.rol];
+                if (!usernamesCounted[persona.username]) {
+                    usernamesCounted[persona.username] = {
+                        nombre: persona.nombre,
+                        roles: [persona.rol]
+                    };
                 } else {
-                    idsCounted[persona.id].push(persona.rol);
+                    usernamesCounted[persona.username].roles.push(persona.rol);
                 }
             }
             
             // Verificar si hay alguna persona asignada a múltiples roles
-            for (const [personaId, roles] of Object.entries(idsCounted)) {
-                if (roles.length > 1) {
-                    const users = DB.get('users') || [];
-                    const auxiliares = DB.get('auxiliares') || [];
-                    const zodiac = DB.get('zodiac') || [];
-                    
-                    const persona = users.find(u => u.id === parseInt(personaId)) || 
-                                   auxiliares.find(a => a.id === parseInt(personaId)) ||
-                                   zodiac.find(z => z.id === parseInt(personaId));
-                    
-                    alert(`⚠️ ${persona ? persona.nombre : 'Una persona'} está asignada a múltiples roles en esta sesión: ${roles.join(', ')}.\n\nCada persona solo puede tener un rol por sesión.`);
+            for (const [username, data] of Object.entries(usernamesCounted)) {
+                if (data.roles.length > 1) {
+                    alert(`⚠️ ${data.nombre} está asignada a múltiples roles en esta sesión: ${data.roles.join(', ')}.\n\nCada persona solo puede tener un rol por sesión.`);
                     return;
                 }
             }
@@ -3063,11 +3135,9 @@
                 if (zodiacId) sesionData.zodiacId = zodiacId;
             }
             
-            // Añadir timonel2 y auxiliar2 si hay más de 19 participantes
-            if (participantesSesion.length > 19) {
-                if (timonel2Id) sesionData.timonel2Id = timonel2Id;
-                if (auxiliar2Id) sesionData.auxiliar2Id = auxiliar2Id;
-            }
+            // Añadir timonel2 y auxiliar2 si están seleccionados (independiente del número de participantes)
+            if (timonel2Id) sesionData.timonel2Id = timonel2Id;
+            if (auxiliar2Id) sesionData.auxiliar2Id = auxiliar2Id;
             
             const data = DB.get('sesiones') || [];
             let sesionGuardadaId;
