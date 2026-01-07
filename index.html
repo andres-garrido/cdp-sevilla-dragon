@@ -2014,16 +2014,6 @@
             const users = DB.get('users') || [];
             const username = document.getElementById('tUsername').value.trim();
             
-            // Verificar si el username ya existe (excepto si estamos editando el mismo usuario)
-            const usernameExiste = users.some(u => 
-                u.username === username && (!editingTimonelId || u.id !== editingTimonelId)
-            );
-            
-            if (usernameExiste) {
-                alert('⚠️ Este nombre de usuario ya está en uso');
-                return;
-            }
-            
             const timonelData = {
                 nombre: document.getElementById('tNombre').value,
                 telefono: document.getElementById('tTelefono').value,
@@ -2037,12 +2027,15 @@
                 if (index >= 0) {
                     users[index] = { ...timonelData, id: editingTimonelId };
                 }
+                alert('✅ Timonel actualizado correctamente');
             } else {
                 users.push({ ...timonelData, id: Date.now() });
+                alert('✅ Timonel creado correctamente');
             }
             
             DB.set('users', users);
             editingTimonelId = null;
+            document.getElementById('formTimonel').classList.add('hidden');
             render();
         };
 
@@ -2111,20 +2104,6 @@
             const username = document.getElementById('aUsername').value.trim();
             const password = document.getElementById('aPassword').value;
             
-            // Verificar si el username ya existe (excepto si estamos editando el mismo usuario)
-            const usernameExiste = users.some(u => {
-                if (editingAuxiliarId) {
-                    const auxiliarEditado = auxiliares.find(a => a.id === editingAuxiliarId);
-                    return u.username === username && u.username !== auxiliarEditado?.username;
-                }
-                return u.username === username;
-            });
-            
-            if (usernameExiste) {
-                alert('⚠️ Este nombre de usuario ya está en uso');
-                return;
-            }
-            
             const auxiliarData = {
                 nombre: document.getElementById('aNombre').value,
                 telefono: document.getElementById('aTelefono').value,
@@ -2145,17 +2124,20 @@
                         users[userIndex] = { ...auxiliarData, id: editingAuxiliarId };
                     }
                 }
+                alert('✅ Auxiliar actualizado correctamente');
             } else {
                 const newId = Date.now();
                 // Añadir auxiliar
                 auxiliares.push({ ...auxiliarData, id: newId });
                 // Añadir usuario
                 users.push({ ...auxiliarData, id: newId });
+                alert('✅ Auxiliar creado correctamente. Puede usar el mismo usuario/contraseña en otros roles.');
             }
             
             DB.set('auxiliares', auxiliares);
             DB.set('users', users);
             editingAuxiliarId = null;
+            document.getElementById('formAuxiliar').classList.add('hidden');
             render();
         };
 
@@ -2224,20 +2206,6 @@
             const username = document.getElementById('zUsername').value.trim();
             const password = document.getElementById('zPassword').value;
             
-            // Verificar si el username ya existe (excepto si estamos editando el mismo usuario)
-            const usernameExiste = users.some(u => {
-                if (editingZodiacId) {
-                    const zodiacEditado = zodiac.find(z => z.id === editingZodiacId);
-                    return u.username === username && u.username !== zodiacEditado?.username;
-                }
-                return u.username === username;
-            });
-            
-            if (usernameExiste) {
-                alert('⚠️ Este nombre de usuario ya está en uso');
-                return;
-            }
-            
             const zodiacData = {
                 nombre: document.getElementById('zNombre').value,
                 telefono: document.getElementById('zTelefono').value,
@@ -2258,17 +2226,20 @@
                         users[userIndex] = { ...zodiacData, id: editingZodiacId };
                     }
                 }
+                alert('✅ Zodiac actualizado correctamente');
             } else {
                 const newId = Date.now();
                 // Añadir zodiac
                 zodiac.push({ ...zodiacData, id: newId });
                 // Añadir usuario
                 users.push({ ...zodiacData, id: newId });
+                alert('✅ Zodiac creado correctamente. Puede usar el mismo usuario/contraseña en otros roles.');
             }
             
             DB.set('zodiac', zodiac);
             DB.set('users', users);
             editingZodiacId = null;
+            document.getElementById('formZodiac').classList.add('hidden');
             render();
         };
 
