@@ -130,7 +130,9 @@
             const barcos = DB.get('barcos') || [];
 
             const timonel = users.find(u => u.id === sesion.timonelId);
+            const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
             const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
+            const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
             const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
             const barco = barcos.find(b => b.id === sesion.barcoId);
 
@@ -155,12 +157,20 @@
                 descripcion += `<p><strong>Barco asignado:</strong> ${barco.nombre}</p>`;
             }
             
+            // Mostrar todos los timoneles
             if (timonel) {
-                descripcion += `<p><strong>Timonel:</strong> ${timonel.nombre}</p>`;
+                descripcion += `<p><strong>Timonel${timonel2 ? ' 1' : ''}:</strong> ${timonel.nombre}</p>`;
+            }
+            if (timonel2) {
+                descripcion += `<p><strong>Timonel 2:</strong> ${timonel2.nombre}</p>`;
             }
             
+            // Mostrar todos los auxiliares
             if (auxiliar) {
-                descripcion += `<p><strong>Auxiliar:</strong> ${auxiliar.nombre}</p>`;
+                descripcion += `<p><strong>Auxiliar${auxiliar2 ? ' 1' : ''}:</strong> ${auxiliar.nombre}</p>`;
+            }
+            if (auxiliar2) {
+                descripcion += `<p><strong>Auxiliar 2:</strong> ${auxiliar2.nombre}</p>`;
             }
             
             if (zodiacPersona) {
@@ -170,25 +180,25 @@
             descripcion += `<p><strong>Número de participantes:</strong> ${sesion.participantes.length}</p>`;
 
             // Calcular fechas en formato Google Calendar: YYYYMMDDTHHMMSS
+            // IMPORTANTE: Usar directamente los valores sin crear objeto Date para evitar conversión de zona horaria
             const [year, month, day] = sesion.fecha.split('-');
             const [hours, minutes] = sesion.horario.split(':');
             
-            const start = new Date(year, month - 1, day, hours, minutes);
-            const end = new Date(start.getTime() + 90 * 60000); // +90 minutos
-
-            // Formatear fechas para Google Calendar (sin guiones ni dos puntos)
-            const formatGCalDate = (date) => {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                const seconds = '00';
-                return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+            // Formatear directamente sin conversión de zona horaria
+            const formatearFechaHora = (year, month, day, hours, minutes) => {
+                return `${year}${month}${day}T${hours}${minutes}00`;
             };
-
-            const fechaInicio = formatGCalDate(start);
-            const fechaFin = formatGCalDate(end);
+            
+            // Calcular hora de fin (90 minutos después)
+            let horaFin = parseInt(hours);
+            let minutosFin = parseInt(minutes) + 90;
+            if (minutosFin >= 60) {
+                horaFin += Math.floor(minutosFin / 60);
+                minutosFin = minutosFin % 60;
+            }
+            
+            const fechaInicio = formatearFechaHora(year, month, day, hours, minutes);
+            const fechaFin = formatearFechaHora(year, month, day, String(horaFin).padStart(2, '0'), String(minutosFin).padStart(2, '0'));
 
             // Construir URL de Google Calendar
             const baseURL = 'https://calendar.google.com/calendar/render';
@@ -2944,6 +2954,41 @@
             const timonel2Id = document.getElementById('sTimonel2').value ? parseInt(document.getElementById('sTimonel2').value) : null;
             const auxiliarId = document.getElementById('sAuxiliar').value ? parseInt(document.getElementById('sAuxiliar').value) : null;
             const auxiliar2Id = document.getElementById('sAuxiliar2').value ? parseInt(document.getElementById('sAuxiliar2').value) : null;
+            const zodiacId = document.getElementById('sZodiac').value ? parseInt(document.getElementById('sZodiac').value) : null;
+            
+            // VALIDACIÓN: La misma persona no puede estar en varios roles en la misma sesión
+            const personasAsignadas = [];
+            if (timonelId) personasAsignadas.push({id: timonelId, rol: 'Timonel'});
+            if (timonel2Id) personasAsignadas.push({id: timonel2Id, rol: 'Timonel 2'});
+            if (auxiliarId) personasAsignadas.push({id: auxiliarId, rol: 'Auxiliar'});
+            if (auxiliar2Id) personasAsignadas.push({id: auxiliar2Id, rol: 'Auxiliar 2'});
+            if (zodiacId) personasAsignadas.push({id: zodiacId, rol: 'Zodiac'});
+            
+            // Buscar duplicados
+            const idsCounted = {};
+            for (const persona of personasAsignadas) {
+                if (!idsCounted[persona.id]) {
+                    idsCounted[persona.id] = [persona.rol];
+                } else {
+                    idsCounted[persona.id].push(persona.rol);
+                }
+            }
+            
+            // Verificar si hay alguna persona asignada a múltiples roles
+            for (const [personaId, roles] of Object.entries(idsCounted)) {
+                if (roles.length > 1) {
+                    const users = DB.get('users') || [];
+                    const auxiliares = DB.get('auxiliares') || [];
+                    const zodiac = DB.get('zodiac') || [];
+                    
+                    const persona = users.find(u => u.id === parseInt(personaId)) || 
+                                   auxiliares.find(a => a.id === parseInt(personaId)) ||
+                                   zodiac.find(z => z.id === parseInt(personaId));
+                    
+                    alert(`⚠️ ${persona ? persona.nombre : 'Una persona'} está asignada a múltiples roles en esta sesión: ${roles.join(', ')}.\n\nCada persona solo puede tener un rol por sesión.`);
+                    return;
+                }
+            }
             
             // Validar que no haya duplicados de timoneles o auxiliares en la misma hora
             const sesiones = DB.get('sesiones') || [];
@@ -3014,10 +3059,8 @@
             // Añadir auxiliar y zodiac si el tipo de sesión lo requiere
             const tiposConAdicionales = ['Menores', 'Once', 'Paradragón'];
             if (tiposConAdicionales.includes(tipoSesion)) {
-                const zodiacId = document.getElementById('sZodiac').value;
-                
                 if (auxiliarId) sesionData.auxiliarId = auxiliarId;
-                if (zodiacId) sesionData.zodiacId = parseInt(zodiacId);
+                if (zodiacId) sesionData.zodiacId = zodiacId;
             }
             
             // Añadir timonel2 y auxiliar2 si hay más de 19 participantes
