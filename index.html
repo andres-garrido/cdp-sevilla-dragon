@@ -449,10 +449,6 @@
                                 Iniciar Sesión
                             </button>
                         </form>
-                        <div class="mt-4 p-3 bg-blue-50 rounded text-sm">
-                            <p><b>Admin:</b> admin / admin123</p>
-                            <p><b>Timonel:</b> timonel / timonel123</p>
-                        </div>
                     </div>
                 </div>
             `;
@@ -2000,12 +1996,13 @@
         };
 
         window.eliminarTimonel = function(id) {
-            // Verificar si el timonel está asignado a alguna sesión
+            // Verificar si el timonel está asignado a alguna sesión ABIERTA
             const sesiones = DB.get('sesiones') || [];
-            const tieneAsignaciones = sesiones.some(s => s.timonelId === id || s.timonel2Id === id);
+            const sesionesAbiertas = sesiones.filter(s => !s.cerrada);
+            const tieneAsignacionesAbiertas = sesionesAbiertas.some(s => s.timonelId === id || s.timonel2Id === id);
             
-            if (tieneAsignaciones) {
-                alert('⚠️ No se puede eliminar un timonel asignado a sesiones');
+            if (tieneAsignacionesAbiertas) {
+                alert('⚠️ No se puede eliminar un timonel asignado a sesiones abiertas');
                 return;
             }
             
@@ -2112,12 +2109,13 @@
         };
 
         window.eliminarAuxiliar = function(id) {
-            // Verificar si el auxiliar está asignado a alguna sesión
+            // Verificar si el auxiliar está asignado a alguna sesión ABIERTA
             const sesiones = DB.get('sesiones') || [];
-            const tieneAsignaciones = sesiones.some(s => s.auxiliarId === id || s.auxiliar2Id === id);
+            const sesionesAbiertas = sesiones.filter(s => !s.cerrada);
+            const tieneAsignacionesAbiertas = sesionesAbiertas.some(s => s.auxiliarId === id || s.auxiliar2Id === id);
             
-            if (tieneAsignaciones) {
-                alert('⚠️ No se puede eliminar un auxiliar asignado a sesiones');
+            if (tieneAsignacionesAbiertas) {
+                alert('⚠️ No se puede eliminar un auxiliar asignado a sesiones abiertas');
                 return;
             }
             
@@ -2224,12 +2222,13 @@
         };
 
         window.eliminarZodiac = function(id) {
-            // Verificar si el zodiac está asignado a alguna sesión
+            // Verificar si el zodiac está asignado a alguna sesión ABIERTA
             const sesiones = DB.get('sesiones') || [];
-            const tieneAsignaciones = sesiones.some(s => s.zodiacId === id);
+            const sesionesAbiertas = sesiones.filter(s => !s.cerrada);
+            const tieneAsignacionesAbiertas = sesionesAbiertas.some(s => s.zodiacId === id);
             
-            if (tieneAsignaciones) {
-                alert('⚠️ No se puede eliminar un zodiac asignado a sesiones');
+            if (tieneAsignacionesAbiertas) {
+                alert('⚠️ No se puede eliminar un zodiac asignado a sesiones abiertas');
                 return;
             }
             
