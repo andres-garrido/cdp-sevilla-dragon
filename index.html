@@ -225,6 +225,17 @@
 
             const url = generarURLGoogleCalendar(sesion);
             window.open(url, '_blank');
+            
+            // Marcar como exportado a Google Calendar
+            const index = sesiones.findIndex(s => s.id === sesionId);
+            if (index >= 0) {
+                sesiones[index].exportadoGoogleCalendar = true;
+                DB.set('sesiones', sesiones);
+                // Re-renderizar para actualizar el color del botón
+                if (currentUser && currentUser.role === 'admin') {
+                    render();
+                }
+            }
         };
 
         
@@ -239,6 +250,7 @@
                     {id: 1, username: 'admin', password: 'admin123', role: 'admin', nombre: 'Administrador'},
                     {id: 2, username: 'timonel', password: 'timonel123', role: 'timonel', nombre: 'Juan Pérez', telefono: ''}
                 ];
+                users = defaultUsers;
                 DB.set('users', defaultUsers);
             }
             
@@ -249,6 +261,51 @@
             if (!DB.get('asistencias')) DB.set('asistencias', []);
             if (!DB.get('satisfaccion')) DB.set('satisfaccion', []);
             if (!DB.get('incidencias')) DB.set('incidencias', []);
+            
+            // MIGRACIÓN: Sincronizar auxiliares y zodiac con la tabla users
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
+            let usersCambiados = false;
+            
+            // Sincronizar auxiliares
+            auxiliares.forEach(aux => {
+                if (aux.username && aux.password) {
+                    const existeEnUsers = users.some(u => u.id === aux.id);
+                    if (!existeEnUsers) {
+                        users.push({
+                            id: aux.id,
+                            nombre: aux.nombre,
+                            telefono: aux.telefono || '',
+                            username: aux.username,
+                            password: aux.password,
+                            role: 'auxiliar'
+                        });
+                        usersCambiados = true;
+                    }
+                }
+            });
+            
+            // Sincronizar zodiac
+            zodiac.forEach(z => {
+                if (z.username && z.password) {
+                    const existeEnUsers = users.some(u => u.id === z.id);
+                    if (!existeEnUsers) {
+                        users.push({
+                            id: z.id,
+                            nombre: z.nombre,
+                            telefono: z.telefono || '',
+                            username: z.username,
+                            password: z.password,
+                            role: 'zodiac'
+                        });
+                        usersCambiados = true;
+                    }
+                }
+            });
+            
+            if (usersCambiados) {
+                DB.set('users', users);
+            }
             
             // Configurar listeners en tiempo real para sincronización
             setupRealtimeListeners();
@@ -971,6 +1028,11 @@
                                     const tieneAsistencia = asist.some(a => a.sesionId === s.id);
                                     const tieneAuxiliarYZodiac = auxiliar && zodiacPersona;
                                     const requierePersonalAdicional = s.participantes.length > 19;
+                                    const incidencias = DB.get('incidencias') || [];
+                                    const incidencia = incidencias.find(inc => inc.sesionId === s.id);
+                                    const tieneCancelacion = incidencia && incidencia.cancelado;
+                                    const tieneIncidencias = incidencia && incidencia.tiposIncidencia && incidencia.tiposIncidencia.length > 0;
+                                    const exportadoGCal = s.exportadoGoogleCalendar || false;
                                     return `
                                     <div class="border-2 rounded-lg p-5 hover:border-blue-400 ${s.cerrada ? 'bg-gray-100 border-gray-400' : ''}">
                                         <div class="flex justify-between">
@@ -983,6 +1045,8 @@
                                                     </span>
                                                     ${tieneAsistencia ? '<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">✓ Asistencia registrada</span>' : ''}
                                                     ${s.cerrada ? '<span class="px-3 py-1 bg-red-500 text-white rounded-full text-sm font-bold">CERRADA</span>' : ''}
+                                                    ${tieneCancelacion ? '<span class="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-bold">❌ CANCELADA</span>' : ''}
+                                                    ${tieneIncidencias && !tieneCancelacion ? '<span class="px-3 py-1 bg-yellow-500 text-white rounded-full text-sm font-bold">⚠️ Incidencias</span>' : ''}
                                                 </div>
                                                 
                                                 <!-- Fila 2: Fecha, hora y representante -->
@@ -1033,7 +1097,7 @@
                                                     <button onclick="editarSesion(${s.id})" class="bg-yellow-100 text-yellow-700 px-4 py-2 rounded font-bold">✏️ Editar</button>
                                                 ` : ''}
                                                 <button onclick="verParticipantes(${s.id})" class="bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold">👥 Ver</button>
-                                                <button onclick="abrirGoogleCalendar(${s.id})" class="bg-red-100 text-red-700 px-4 py-2 rounded font-bold">📅 Google Calendar</button>
+                                                <button onclick="abrirGoogleCalendar(${s.id})" class="${exportadoGCal ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-4 py-2 rounded font-bold">📅 ${exportadoGCal ? 'Google Calendar ✓' : 'Google Calendar'}</button>
                                                 ${!s.cerrada ? `
                                                     <button onclick="enviarWhatsAppSesion(${s.id})" class="bg-green-100 text-green-700 px-4 py-2 rounded font-bold">📱 WhatsApp</button>
                                                     <button onclick="generarQR(${s.id})" class="bg-purple-100 text-purple-700 px-4 py-2 rounded font-bold">📱 QR</button>
@@ -3761,10 +3825,20 @@
 
             // Verificar que no tenga incidencias ya registradas
             const incidencias = DB.get('incidencias') || [];
-            const tieneIncidencia = incidencias.some(inc => inc.sesionId === sesionId);
+            const incidencia = incidencias.find(inc => inc.sesionId === sesionId);
             
-            if (tieneIncidencia) {
+            if (incidencia) {
                 alert('⚠️ Esta sesión ya tiene incidencias registradas');
+                return;
+            }
+            
+            // Verificar si tiene asistencias registradas
+            const asistencias = DB.get('asistencias') || [];
+            const tieneAsistencia = asistencias.some(a => a.sesionId === sesionId);
+            
+            // Solo permitir cerrar sin asistencia si la sesión está cancelada
+            if (!tieneAsistencia) {
+                alert('⚠️ No se puede cerrar una sesión sin registrar la asistencia. Debe:\n1. Registrar la asistencia, o\n2. Registrar una incidencia marcándola como cancelada');
                 return;
             }
 
