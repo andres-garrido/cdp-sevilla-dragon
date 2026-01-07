@@ -179,36 +179,44 @@
             
             descripcion += `<p><strong>Número de participantes:</strong> ${sesion.participantes.length}</p>`;
 
-            // Calcular fechas en formato Google Calendar: YYYYMMDDTHHMMSS
-            // IMPORTANTE: Usar directamente los valores sin crear objeto Date para evitar conversión de zona horaria
+            // Calcular fechas en formato Google Calendar: YYYYMMDDTHHMMSS (hora flotante)
+            // Este formato se interpreta en la zona horaria del calendario del usuario
             const [year, month, day] = sesion.fecha.split('-');
             const [hours, minutes] = sesion.horario.split(':');
             
-            // Formatear directamente sin conversión de zona horaria
-            const formatearFechaHora = (year, month, day, hours, minutes) => {
-                return `${year}${month}${day}T${hours}${minutes}00`;
+            // Formatear directamente sin zona horaria (hora flotante)
+            const formatearFechaHora = (y, m, d, h, min) => {
+                return `${y}${m}${d}T${h}${min}00`;
             };
             
             // Calcular hora de fin (90 minutos después)
             let horaFin = parseInt(hours);
             let minutosFin = parseInt(minutes) + 90;
+            
+            // Si los minutos pasan de 60, ajustar horas
             if (minutosFin >= 60) {
                 horaFin += Math.floor(minutosFin / 60);
                 minutosFin = minutosFin % 60;
             }
             
+            // Si la hora pasa de 24, ajustar al día siguiente
+            let diaFin = parseInt(day);
+            if (horaFin >= 24) {
+                horaFin = horaFin % 24;
+                diaFin += 1;
+            }
+            
             const fechaInicio = formatearFechaHora(year, month, day, hours, minutes);
-            const fechaFin = formatearFechaHora(year, month, day, String(horaFin).padStart(2, '0'), String(minutosFin).padStart(2, '0'));
+            const fechaFin = formatearFechaHora(year, month, String(diaFin).padStart(2, '0'), String(horaFin).padStart(2, '0'), String(minutosFin).padStart(2, '0'));
 
-            // Construir URL de Google Calendar
+            // Construir URL de Google Calendar (sin ctz para usar hora flotante)
             const baseURL = 'https://calendar.google.com/calendar/render';
             const params = new URLSearchParams({
                 action: 'TEMPLATE',
                 text: titulo,
                 dates: `${fechaInicio}/${fechaFin}`,
                 details: descripcion,
-                location: 'CDP Sevilla-Dragón',
-                ctz: 'Europe/Madrid'
+                location: 'CDP Sevilla-Dragón'
             });
 
             return `${baseURL}?${params.toString()}`;
