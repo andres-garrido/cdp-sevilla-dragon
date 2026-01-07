@@ -262,49 +262,76 @@
             if (!DB.get('satisfaccion')) DB.set('satisfaccion', []);
             if (!DB.get('incidencias')) DB.set('incidencias', []);
             
-            // MIGRACIÓN: Sincronizar auxiliares y zodiac con la tabla users
+            // MIGRACIÓN ROBUSTA: Sincronizar TODOS los auxiliares y zodiac con la tabla users
             const auxiliares = DB.get('auxiliares') || [];
             const zodiac = DB.get('zodiac') || [];
             let usersCambiados = false;
+            let auxiliaresCambiados = false;
+            let zodiacCambiados = false;
             
             // Sincronizar auxiliares
-            auxiliares.forEach(aux => {
-                if (aux.username && aux.password) {
-                    const existeEnUsers = users.some(u => u.id === aux.id);
-                    if (!existeEnUsers) {
-                        users.push({
-                            id: aux.id,
-                            nombre: aux.nombre,
-                            telefono: aux.telefono || '',
-                            username: aux.username,
-                            password: aux.password,
-                            role: 'auxiliar'
-                        });
-                        usersCambiados = true;
+            auxiliares.forEach((aux, index) => {
+                const existeEnUsers = users.some(u => u.id === aux.id);
+                
+                if (!existeEnUsers) {
+                    // Si no tiene username/password, generarlos automáticamente
+                    if (!aux.username || !aux.password) {
+                        const nombreSimple = aux.nombre.toLowerCase().replace(/\s+/g, '');
+                        auxiliares[index].username = `aux_${nombreSimple}`;
+                        auxiliares[index].password = `aux123`;
+                        auxiliares[index].role = 'auxiliar';
+                        auxiliaresCambiados = true;
                     }
+                    
+                    // Añadir a users
+                    users.push({
+                        id: aux.id,
+                        nombre: aux.nombre,
+                        telefono: aux.telefono || '',
+                        username: auxiliares[index].username,
+                        password: auxiliares[index].password,
+                        role: 'auxiliar'
+                    });
+                    usersCambiados = true;
                 }
             });
             
             // Sincronizar zodiac
-            zodiac.forEach(z => {
-                if (z.username && z.password) {
-                    const existeEnUsers = users.some(u => u.id === z.id);
-                    if (!existeEnUsers) {
-                        users.push({
-                            id: z.id,
-                            nombre: z.nombre,
-                            telefono: z.telefono || '',
-                            username: z.username,
-                            password: z.password,
-                            role: 'zodiac'
-                        });
-                        usersCambiados = true;
+            zodiac.forEach((z, index) => {
+                const existeEnUsers = users.some(u => u.id === z.id);
+                
+                if (!existeEnUsers) {
+                    // Si no tiene username/password, generarlos automáticamente
+                    if (!z.username || !z.password) {
+                        const nombreSimple = z.nombre.toLowerCase().replace(/\s+/g, '');
+                        zodiac[index].username = `zodiac_${nombreSimple}`;
+                        zodiac[index].password = `zodiac123`;
+                        zodiac[index].role = 'zodiac';
+                        zodiacCambiados = true;
                     }
+                    
+                    // Añadir a users
+                    users.push({
+                        id: z.id,
+                        nombre: z.nombre,
+                        telefono: z.telefono || '',
+                        username: zodiac[index].username,
+                        password: zodiac[index].password,
+                        role: 'zodiac'
+                    });
+                    usersCambiados = true;
                 }
             });
             
+            // Guardar cambios si hubo alguna actualización
             if (usersCambiados) {
                 DB.set('users', users);
+            }
+            if (auxiliaresCambiados) {
+                DB.set('auxiliares', auxiliares);
+            }
+            if (zodiacCambiados) {
+                DB.set('zodiac', zodiac);
             }
             
             // Configurar listeners en tiempo real para sincronización
