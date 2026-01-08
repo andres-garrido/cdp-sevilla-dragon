@@ -1482,83 +1482,68 @@
                 <div class="container mx-auto px-4 py-8">
                     <h2 class="text-4xl font-bold mb-6">Calendarios de Google</h2>
                     
-                    <!-- Configurar IDs de Calendarios (4 líneas) -->
+                    <!-- Botones de acción -->
                     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                        <h3 class="text-2xl font-bold mb-4">⚙️ Configurar IDs de Calendarios</h3>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="block text-sm font-bold mb-1">📅 Calendario de Sesiones</label>
-                                <input type="text" id="calSesiones" value="${calendarios.sesiones}" 
-                                    placeholder="ID del calendario (ej: abc123@group.calendar.google.com)"
-                                    class="w-full px-4 py-2 border-2 rounded-lg">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold mb-1">👤 Calendario de Timoneles</label>
-                                <input type="text" id="calTimoneles" value="${calendarios.timoneles}" 
-                                    placeholder="ID del calendario"
-                                    class="w-full px-4 py-2 border-2 rounded-lg">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold mb-1">🆘 Calendario de Auxiliares</label>
-                                <input type="text" id="calAuxiliares" value="${calendarios.auxiliares}" 
-                                    placeholder="ID del calendario"
-                                    class="w-full px-4 py-2 border-2 rounded-lg">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold mb-1">🚤 Calendario de Zodiac</label>
-                                <input type="text" id="calZodiac" value="${calendarios.zodiac}" 
-                                    placeholder="ID del calendario"
-                                    class="w-full px-4 py-2 border-2 rounded-lg">
-                            </div>
-                            <button onclick="guardarCalendarios()" class="w-full bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold">
-                                ✓ Guardar IDs de Calendarios
+                        <h3 class="text-2xl font-bold mb-4">📆 Gestión de Calendarios</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <button onclick="mostrarConfiguracionCalendarios()" 
+                                class="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold">
+                                ⚙️ Configurar IDs
                             </button>
+                            ${calendarios.sesiones ? `
+                                <button onclick="mostrarCalendario('sesiones', '${calendarios.sesiones.replace(/"/g, '&quot;')}')" 
+                                    id="btnCalSesiones"
+                                    class="px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-bold">
+                                    📅 Sesiones
+                                </button>
+                            ` : ''}
+                            ${calendarios.timoneles ? `
+                                <button onclick="mostrarCalendario('timoneles', '${calendarios.timoneles.replace(/"/g, '&quot;')}')" 
+                                    id="btnCalTimoneles"
+                                    class="px-6 py-4 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold">
+                                    👤 Timoneles
+                                </button>
+                            ` : ''}
+                            ${calendarios.auxiliares ? `
+                                <button onclick="mostrarCalendario('auxiliares', '${calendarios.auxiliares.replace(/"/g, '&quot;')}')" 
+                                    id="btnCalAuxiliares"
+                                    class="px-6 py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-bold">
+                                    🆘 Auxiliares
+                                </button>
+                            ` : ''}
+                            ${calendarios.zodiac ? `
+                                <button onclick="mostrarCalendario('zodiac', '${calendarios.zodiac.replace(/"/g, '&quot;')}')" 
+                                    id="btnCalZodiac"
+                                    class="px-6 py-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg font-bold">
+                                    🚤 Zodiac
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                     
-                    <!-- Botones para ver calendarios (quinta línea) -->
-                    ${calendarios.sesiones || calendarios.timoneles || calendarios.auxiliares || calendarios.zodiac ? `
-                        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                            <h3 class="text-2xl font-bold mb-4">📆 Ver Calendarios</h3>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                ${calendarios.sesiones ? `
-                                    <button onclick='mostrarCalendario("sesiones", "${calendarios.sesiones.replace(/"/g, '&quot;')}")' 
-                                        id="btnCalSesiones"
-                                        class="px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-bold">
-                                        📅 Sesiones
-                                    </button>
-                                ` : ''}
-                                ${calendarios.timoneles ? `
-                                    <button onclick='mostrarCalendario("timoneles", "${calendarios.timoneles.replace(/"/g, '&quot;')}")' 
-                                        id="btnCalTimoneles"
-                                        class="px-6 py-4 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold">
-                                        👤 Timoneles
-                                    </button>
-                                ` : ''}
-                                ${calendarios.auxiliares ? `
-                                    <button onclick='mostrarCalendario("auxiliares", "${calendarios.auxiliares.replace(/"/g, '&quot;')}")' 
-                                        id="btnCalAuxiliares"
-                                        class="px-6 py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-bold">
-                                        🆘 Auxiliares
-                                    </button>
-                                ` : ''}
-                                ${calendarios.zodiac ? `
-                                    <button onclick='mostrarCalendario("zodiac", "${calendarios.zodiac.replace(/"/g, '&quot;')}")' 
-                                        id="btnCalZodiac"
-                                        class="px-6 py-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg font-bold">
-                                        🚤 Zodiac
-                                    </button>
-                                ` : ''}
-                            </div>
+                    ${!calendarios.sesiones && !calendarios.timoneles && !calendarios.auxiliares && !calendarios.zodiac ? `
+                        <div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
+                            <h3 class="text-xl font-bold mb-3">📘 Instrucciones</h3>
+                            <ol class="list-decimal list-inside space-y-2">
+                                <li>Pulsa el botón "⚙️ Configurar IDs" para configurar los calendarios</li>
+                                <li>Crea 4 calendarios en Google Calendar: "Sesiones", "Timoneles", "Auxiliares" y "Zodiac"</li>
+                                <li>Para cada calendario, haz clic en los 3 puntos → Configuración y compartición</li>
+                                <li>En "Integrar calendario", copia el <strong>ID del calendario</strong> (ejemplo: abc123@group.calendar.google.com)</li>
+                                <li>Pega cada ID en el campo correspondiente y guarda</li>
+                            </ol>
                         </div>
-                        
-                        <!-- Calendario mensual embebido -->
-                        <div id="calendarioEmbebido" class="bg-white rounded-xl shadow-lg p-6" style="display: none;">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-2xl font-bold" id="tituloCalendario"></h3>
-                                <button onclick="ocultarCalendario()" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded font-bold">✕ Cerrar</button>
+                    ` : ''}
+                    
+                    <!-- Calendario mensual embebido (pantalla completa) -->
+                    <div id="calendarioEmbebido" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+                        <div class="bg-white rounded-xl shadow-2xl w-full h-full max-w-7xl max-h-screen overflow-hidden flex flex-col">
+                            <div class="flex justify-between items-center p-6 border-b">
+                                <h3 class="text-3xl font-bold" id="tituloCalendario"></h3>
+                                <button onclick="ocultarCalendario()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-xl">
+                                    ✕ Cerrar
+                                </button>
                             </div>
-                            <div class="relative w-full" style="height: 600px;">
+                            <div class="flex-1 p-6">
                                 <iframe id="iframeCalendario" 
                                     style="width: 100%; height: 100%; border: 0;" 
                                     frameborder="0" 
@@ -1566,35 +1551,61 @@
                                 </iframe>
                             </div>
                         </div>
-                    ` : `
-                        <div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
-                            <h3 class="text-xl font-bold mb-3">📘 Instrucciones</h3>
-                            <ol class="list-decimal list-inside space-y-2">
-                                <li>Crea 4 calendarios en Google Calendar: "Sesiones", "Timoneles", "Auxiliares" y "Zodiac"</li>
-                                <li>Para cada calendario, haz clic en los 3 puntos → Configuración y compartición</li>
-                                <li>En "Integrar calendario", copia el <strong>ID del calendario</strong> (ejemplo: abc123@group.calendar.google.com)</li>
-                                <li>Pega cada ID en el campo correspondiente arriba y guarda</li>
-                            </ol>
-                        </div>
-                    `}
+                    </div>
                     
-                    <!-- Sección de exportar -->
-                    <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
-                        <h3 class="text-2xl font-bold mb-4">📥 Exportar Eventos (.ics)</h3>
-                        <p class="text-gray-600 mb-4">Descarga archivos .ics e impórtalos a cada calendario de Google</p>
-                        <div class="grid md:grid-cols-4 gap-3">
-                            <button onclick="exportarCalendarioSesiones()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">
-                                📅 Exportar Sesiones
-                            </button>
-                            <button onclick="exportarCalendarioTimoneles()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-bold">
-                                👤 Exportar Timoneles
-                            </button>
-                            <button onclick="exportarCalendarioAuxiliares()" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-bold">
-                                🆘 Exportar Auxiliares
-                            </button>
-                            <button onclick="exportarCalendarioZodiac()" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-bold">
-                                🚤 Exportar Zodiac
-                            </button>
+                    <!-- Modal de Configuración de IDs -->
+                    <div id="modalConfigCalendarios" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-screen overflow-y-auto">
+                            <div class="p-8">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h3 class="text-3xl font-bold">⚙️ Configurar IDs de Calendarios</h3>
+                                    <button onclick="cerrarConfiguracionCalendarios()" class="text-4xl hover:text-red-600">&times;</button>
+                                </div>
+                                
+                                <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+                                    <p class="text-sm text-gray-700">
+                                        <strong>¿Cómo obtener el ID del calendario?</strong><br>
+                                        1. Abre Google Calendar<br>
+                                        2. Haz clic en los 3 puntos del calendario → Configuración y compartición<br>
+                                        3. En "Integrar calendario", copia el <strong>ID del calendario</strong>
+                                    </p>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">📅 Calendario de Sesiones</label>
+                                        <input type="text" id="calSesiones" value="${calendarios.sesiones}" 
+                                            placeholder="ID del calendario (ej: abc123@group.calendar.google.com)"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">👤 Calendario de Timoneles</label>
+                                        <input type="text" id="calTimoneles" value="${calendarios.timoneles}" 
+                                            placeholder="ID del calendario"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">🆘 Calendario de Auxiliares</label>
+                                        <input type="text" id="calAuxiliares" value="${calendarios.auxiliares}" 
+                                            placeholder="ID del calendario"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">🚤 Calendario de Zodiac</label>
+                                        <input type="text" id="calZodiac" value="${calendarios.zodiac}" 
+                                            placeholder="ID del calendario"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div class="flex gap-4 pt-4">
+                                        <button onclick="guardarCalendarios()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg font-bold text-lg">
+                                            ✓ Guardar IDs de Calendarios
+                                        </button>
+                                        <button onclick="cerrarConfiguracionCalendarios()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-4 rounded-lg font-bold">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3739,22 +3750,21 @@
                 zodiac: document.getElementById('calZodiac').value.trim()
             };
             DB.set('calendarios', calendarios);
+            cerrarConfiguracionCalendarios();
             alert('✓ IDs de calendarios guardados correctamente');
             render();
         };
 
+        window.mostrarConfiguracionCalendarios = function() {
+            document.getElementById('modalConfigCalendarios').classList.remove('hidden');
+        };
+
+        window.cerrarConfiguracionCalendarios = function() {
+            document.getElementById('modalConfigCalendarios').classList.add('hidden');
+        };
+
         window.mostrarCalendario = function(tipo, calendarId) {
-            // Resaltar botón activo
-            document.querySelectorAll('[id^="btnCal"]').forEach(btn => {
-                btn.classList.remove('ring-4', 'ring-blue-500');
-            });
-            const btnId = 'btnCal' + tipo.charAt(0).toUpperCase() + tipo.slice(1);
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                btn.classList.add('ring-4', 'ring-blue-500');
-            }
-            
-            // Mostrar calendario
+            // Mostrar calendario en pantalla completa
             const calendarioDiv = document.getElementById('calendarioEmbebido');
             const iframe = document.getElementById('iframeCalendario');
             const titulo = document.getElementById('tituloCalendario');
@@ -3772,22 +3782,16 @@
             const calendarUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=Europe/Madrid&mode=MONTH&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&showTz=0`;
             iframe.src = calendarUrl;
             
-            calendarioDiv.style.display = 'block';
-            
-            // Scroll suave al calendario
-            setTimeout(() => {
-                calendarioDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
+            calendarioDiv.classList.remove('hidden');
         };
 
         window.ocultarCalendario = function() {
             const calendarioDiv = document.getElementById('calendarioEmbebido');
-            calendarioDiv.style.display = 'none';
+            calendarioDiv.classList.add('hidden');
             
-            // Quitar resaltado de botones
-            document.querySelectorAll('[id^="btnCal"]').forEach(btn => {
-                btn.classList.remove('ring-4', 'ring-blue-500');
-            });
+            // Limpiar iframe
+            const iframe = document.getElementById('iframeCalendario');
+            iframe.src = '';
         };
 
 
