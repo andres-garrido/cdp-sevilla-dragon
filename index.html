@@ -487,10 +487,16 @@
                     return;
                 }
                 
-                const user = users.find(u => u.username === username && u.password === password);
+                // Buscar TODOS los usuarios con este username/password (puede haber múltiples roles)
+                const matchingUsers = users.filter(u => u.username === username && u.password === password);
                 
-                if (user) {
-                    currentUser = user;
+                if (matchingUsers.length > 0) {
+                    // Si hay múltiples roles, usar el primero pero guardar el username para búsqueda
+                    currentUser = {
+                        ...matchingUsers[0],
+                        username: username,  // Guardar username para búsqueda en dashboard
+                        allRoles: matchingUsers.map(u => u.role) // Guardar todos los roles
+                    };
                     currentView = 'dashboard';
                     render();
                 } else {
@@ -545,10 +551,18 @@
                                     <div class="text-right text-sm">
                                         <p class="font-bold">${currentUser.nombre}</p>
                                         <p class="text-blue-200">${
-                                            currentUser.role === 'admin' ? 'Administrador' : 
-                                            currentUser.role === 'timonel' ? 'Timonel' :
-                                            currentUser.role === 'auxiliar' ? 'Auxiliar' :
-                                            currentUser.role === 'zodiac' ? 'Zodiac' : 'Usuario'
+                                            currentUser.allRoles && currentUser.allRoles.length > 1 
+                                                ? currentUser.allRoles.map(r => {
+                                                    if (r === 'admin') return 'Admin';
+                                                    if (r === 'timonel') return 'Timonel';
+                                                    if (r === 'auxiliar') return 'Auxiliar';
+                                                    if (r === 'zodiac') return 'Zodiac';
+                                                    return r;
+                                                  }).join(' + ')
+                                                : (currentUser.role === 'admin' ? 'Administrador' : 
+                                                   currentUser.role === 'timonel' ? 'Timonel' :
+                                                   currentUser.role === 'auxiliar' ? 'Auxiliar' :
+                                                   currentUser.role === 'zodiac' ? 'Zodiac' : 'Usuario')
                                         }</p>
                                     </div>
                                     <button onclick="logout()" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">Salir</button>
