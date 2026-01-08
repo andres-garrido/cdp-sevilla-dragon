@@ -1060,7 +1060,7 @@
                         </form>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div id="listaSesionesRegistradas" class="bg-white rounded-xl shadow-lg p-6">
                         <h3 class="text-xl font-bold mb-4">Sesiones Registradas (${sesiones.length})</h3>
                         ${sesiones.length === 0 ? `
                             <div class="text-center py-16">
@@ -2749,12 +2749,15 @@
 
         window.mostrarFormSesion = function() {
             const form = document.getElementById('formSesion');
+            const listaSesiones = document.getElementById('listaSesionesRegistradas');
             const visible = !form.classList.contains('hidden');
             
             if (visible) {
                 form.classList.add('hidden');
+                if (listaSesiones) listaSesiones.classList.remove('hidden');
             } else {
                 form.classList.remove('hidden');
+                if (listaSesiones) listaSesiones.classList.add('hidden');
                 editingSesionId = null;
                 document.getElementById('tituloFormSesion').textContent = 'Nueva Sesión';
                 document.getElementById('btnGuardarTexto').textContent = 'Crear Sesión';
@@ -2778,7 +2781,9 @@
         };
 
         window.cancelarEdicion = function() {
+            const listaSesiones = document.getElementById('listaSesionesRegistradas');
             document.getElementById('formSesion').classList.add('hidden');
+            if (listaSesiones) listaSesiones.classList.remove('hidden');
             editingSesionId = null;
             participantesSesion = [];
         };
@@ -2835,6 +2840,10 @@
             
             actualizarListaParticipantes();
             document.getElementById('formSesion').classList.remove('hidden');
+            
+            // Ocultar lista de sesiones mientras se edita
+            const listaSesiones = document.getElementById('listaSesionesRegistradas');
+            if (listaSesiones) listaSesiones.classList.add('hidden');
         };
 
         window.cargarExcel = function() {
@@ -3259,12 +3268,132 @@
             
             DB.set('sesiones', data);
             
-            // Enviar WhatsApp automáticamente al personal asignado
-            enviarWhatsAppSesion(sesionGuardadaId);
+            // Preparar TODOS los mensajes de WhatsApp (asignados + desasignados)
+            const todosLosMensajes = [];
             
-            // Enviar WhatsApp de desasignación si hay personal desasignado
-            if (personalDesasignado.length > 0) {
-                enviarWhatsAppDesasignacion(sesionAnterior, personalDesasignado);
+            // Obtener sesión guardada
+            const sesionGuardada = data.find(s => s.id === sesionGuardadaId);
+            if (sesionGuardada) {
+                // Preparar mensaje base
+                const fecha = new Date(sesionGuardada.fecha).toLocaleDateString('es-ES', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                
+                const barcos = DB.get('barcos') || [];
+                const barco = barcos.find(b => b.id === sesionGuardada.barcoId);
+                
+                const mensajeBase = `🛶 *Nueva Sesión Asignada*\n\n` +
+                    `📋 *Sesión:* ${sesionGuardada.nombre || sesionGuardada.tipo}\n` +
+                    `🏷️ *Tipo:* ${sesionGuardada.tipo}\n` +
+                    `📅 *Fecha:* ${fecha}\n` +
+                    `⏰ *Hora:* ${sesionGuardada.horario}\n` +
+                    (barco ? `🛶 *Barco:* ${barco.nombre}\n` : '') +
+                    `👤 *Representante:* ${sesionGuardada.representante}\n` +
+                    `📞 *Teléfono:* ${sesionGuardada.telefonoRepresentante}\n` +
+                    `👥 *Participantes:* ${sesionGuardada.participantes.length}\n\n`;
+                
+                // Agregar mensajes para NUEVO personal asignado
+                const timonel = users.find(u => u.id === sesionGuardada.timonelId);
+                const timonel2 = sesionGuardada.timonel2Id ? users.find(u => u.id === sesionGuardada.timonel2Id) : null;
+                const auxiliar = auxiliares.find(a => a.id === sesionGuardada.auxiliarId);
+                const auxiliar2 = sesionGuardada.auxiliar2Id ? auxiliares.find(a => a.id === sesionGuardada.auxiliar2Id) : null;
+                const zodiacPersona = zodiac.find(z => z.id === sesionGuardada.zodiacId);
+                
+                if (timonel && timonel.telefono) {
+                    const telefono = timonel.telefono.replace(/\D/g, '');
+                    if (telefono) {
+                        todosLosMensajes.push({
+                            telefono: telefono,
+                            mensaje: mensajeBase + `👤 *Tu rol:* Timonel Principal`,
+                            nombre: timonel.nombre,
+                            rol: 'Timonel Principal'
+                        });
+                    }
+                }
+                
+                if (timonel2 && timonel2.telefono) {
+                    const telefono = timonel2.telefono.replace(/\D/g, '');
+                    if (telefono) {
+                        todosLosMensajes.push({
+                            telefono: telefono,
+                            mensaje: mensajeBase + `👤 *Tu rol:* Timonel Secundario\n👤 *Timonel Principal:* ${timonel ? timonel.nombre : '-'}`,
+                            nombre: timonel2.nombre,
+                            rol: 'Timonel Secundario'
+                        });
+                    }
+                }
+                
+                if (auxiliar && auxiliar.telefono) {
+                    const telefono = auxiliar.telefono.replace(/\D/g, '');
+                    if (telefono) {
+                        todosLosMensajes.push({
+                            telefono: telefono,
+                            mensaje: mensajeBase + `🆘 *Tu rol:* Auxiliar Principal\n👤 *Timonel:* ${timonel ? timonel.nombre : '-'}`,
+                            nombre: auxiliar.nombre,
+                            rol: 'Auxiliar Principal'
+                        });
+                    }
+                }
+                
+                if (auxiliar2 && auxiliar2.telefono) {
+                    const telefono = auxiliar2.telefono.replace(/\D/g, '');
+                    if (telefono) {
+                        todosLosMensajes.push({
+                            telefono: telefono,
+                            mensaje: mensajeBase + `🆘 *Tu rol:* Auxiliar Secundario\n👤 *Timonel:* ${timonel ? timonel.nombre : '-'}`,
+                            nombre: auxiliar2.nombre,
+                            rol: 'Auxiliar Secundario'
+                        });
+                    }
+                }
+                
+                if (zodiacPersona && zodiacPersona.telefono) {
+                    const telefono = zodiacPersona.telefono.replace(/\D/g, '');
+                    if (telefono) {
+                        todosLosMensajes.push({
+                            telefono: telefono,
+                            mensaje: mensajeBase + `🚤 *Tu rol:* Zodiac\n👤 *Timonel:* ${timonel ? timonel.nombre : '-'}`,
+                            nombre: zodiacPersona.nombre,
+                            rol: 'Zodiac'
+                        });
+                    }
+                }
+            }
+            
+            // Agregar mensajes para personal DESASIGNADO
+            if (personalDesasignado.length > 0 && sesionAnterior) {
+                const fechaAnterior = new Date(sesionAnterior.fecha).toLocaleDateString('es-ES', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                
+                personalDesasignado.forEach(item => {
+                    const telefono = item.persona.telefono.replace(/\D/g, '');
+                    const mensaje = `🛶 *Actualización de Sesión*\n\n` +
+                        `Has sido desasignado de la siguiente sesión:\n\n` +
+                        `📋 *Sesión:* ${sesionAnterior.nombre || sesionAnterior.tipo}\n` +
+                        `🏷️ *Tipo:* ${sesionAnterior.tipo}\n` +
+                        `📅 *Fecha:* ${fechaAnterior}\n` +
+                        `⏰ *Hora:* ${sesionAnterior.horario}\n\n` +
+                        `Tu rol anterior: ${item.rol}`;
+                    
+                    todosLosMensajes.push({
+                        telefono: telefono,
+                        mensaje: mensaje,
+                        nombre: item.persona.nombre,
+                        rol: `${item.rol} (DESASIGNADO)`
+                    });
+                });
+            }
+            
+            // Mostrar modal con TODOS los mensajes si hay alguno
+            if (todosLosMensajes.length > 0) {
+                mostrarModalWhatsApp(todosLosMensajes);
             }
             
             participantesSesion = [];
