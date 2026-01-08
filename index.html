@@ -1349,64 +1349,40 @@
         // CALENDARIOS
         function renderCalendarios() {
             const calendarios = DB.get('calendarios') || {
-                sesiones: '',
-                timoneles: '',
-                auxiliares: '',
-                zodiac: ''
+                sesiones: ''
             };
 
             return `
                 <div class="container mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-6">Calendarios de Google</h2>
+                    <h2 class="text-4xl font-bold mb-6">Calendario de Sesiones</h2>
                     
                     <!-- Botones de acción -->
                     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                        <h3 class="text-2xl font-bold mb-4">📆 Gestión de Calendarios</h3>
-                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <h3 class="text-2xl font-bold mb-4">📆 Gestión de Calendario</h3>
+                        <div class="grid grid-cols-2 gap-3">
                             <button onclick="mostrarConfiguracionCalendarios()" 
                                 class="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold">
-                                ⚙️ Configurar IDs
+                                ⚙️ Configurar ID
                             </button>
                             ${calendarios.sesiones ? `
                                 <button onclick="mostrarCalendario('sesiones', '${calendarios.sesiones.replace(/"/g, '&quot;')}')" 
                                     id="btnCalSesiones"
                                     class="px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-bold">
-                                    📅 Sesiones
-                                </button>
-                            ` : ''}
-                            ${calendarios.timoneles ? `
-                                <button onclick="mostrarCalendario('timoneles', '${calendarios.timoneles.replace(/"/g, '&quot;')}')" 
-                                    id="btnCalTimoneles"
-                                    class="px-6 py-4 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold">
-                                    👤 Timoneles
-                                </button>
-                            ` : ''}
-                            ${calendarios.auxiliares ? `
-                                <button onclick="mostrarCalendario('auxiliares', '${calendarios.auxiliares.replace(/"/g, '&quot;')}')" 
-                                    id="btnCalAuxiliares"
-                                    class="px-6 py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-bold">
-                                    🆘 Auxiliares
-                                </button>
-                            ` : ''}
-                            ${calendarios.zodiac ? `
-                                <button onclick="mostrarCalendario('zodiac', '${calendarios.zodiac.replace(/"/g, '&quot;')}')" 
-                                    id="btnCalZodiac"
-                                    class="px-6 py-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg font-bold">
-                                    🚤 Zodiac
+                                    📅 Ver Calendario
                                 </button>
                             ` : ''}
                         </div>
                     </div>
                     
-                    ${!calendarios.sesiones && !calendarios.timoneles && !calendarios.auxiliares && !calendarios.zodiac ? `
+                    ${!calendarios.sesiones ? `
                         <div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
                             <h3 class="text-xl font-bold mb-3">📘 Instrucciones</h3>
                             <ol class="list-decimal list-inside space-y-2">
-                                <li>Pulsa el botón "⚙️ Configurar IDs" para configurar los calendarios</li>
-                                <li>Crea 4 calendarios en Google Calendar: "Sesiones", "Timoneles", "Auxiliares" y "Zodiac"</li>
-                                <li>Para cada calendario, haz clic en los 3 puntos → Configuración y compartición</li>
+                                <li>Pulsa el botón "⚙️ Configurar ID" para configurar el calendario</li>
+                                <li>Crea un calendario en Google Calendar llamado "Sesiones CDP"</li>
+                                <li>Haz clic en los 3 puntos → Configuración y compartición</li>
                                 <li>En "Integrar calendario", copia el <strong>ID del calendario</strong> (ejemplo: abc123@group.calendar.google.com)</li>
-                                <li>Pega cada ID en el campo correspondiente y guarda</li>
+                                <li>Pega el ID en el campo y guarda</li>
                             </ol>
                         </div>
                     ` : ''}
@@ -1430,12 +1406,12 @@
                         </div>
                     </div>
                     
-                    <!-- Modal de Configuración de IDs -->
+                    <!-- Modal de Configuración de ID -->
                     <div id="modalConfigCalendarios" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-                        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-screen overflow-y-auto">
+                        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-screen overflow-y-auto">
                             <div class="p-8">
                                 <div class="flex justify-between items-center mb-6">
-                                    <h3 class="text-3xl font-bold">⚙️ Configurar IDs de Calendarios</h3>
+                                    <h3 class="text-3xl font-bold">⚙️ Configurar ID de Calendario</h3>
                                     <button onclick="cerrarConfiguracionCalendarios()" class="text-4xl hover:text-red-600">&times;</button>
                                 </div>
                                 
@@ -1455,19 +1431,21 @@
                                             placeholder="ID del calendario (ej: abc123@group.calendar.google.com)"
                                             class="w-full px-4 py-3 border-2 rounded-lg">
                                     </div>
-                                    <div>
-                                        <label class="block text-sm font-bold mb-2">👤 Calendario de Timoneles</label>
-                                        <input type="text" id="calTimoneles" value="${calendarios.timoneles}" 
-                                            placeholder="ID del calendario"
-                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    <div class="flex gap-4 pt-4">
+                                        <button onclick="guardarCalendarios()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg font-bold text-lg">
+                                            ✓ Guardar ID de Calendario
+                                        </button>
+                                        <button onclick="cerrarConfiguracionCalendarios()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-4 rounded-lg font-bold">
+                                            Cancelar
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label class="block text-sm font-bold mb-2">🆘 Calendario de Auxiliares</label>
-                                        <input type="text" id="calAuxiliares" value="${calendarios.auxiliares}" 
-                                            placeholder="ID del calendario"
-                                            class="w-full px-4 py-3 border-2 rounded-lg">
-                                    </div>
-                                    <div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
                                         <label class="block text-sm font-bold mb-2">🚤 Calendario de Zodiac</label>
                                         <input type="text" id="calZodiac" value="${calendarios.zodiac}" 
                                             placeholder="ID del calendario"
@@ -3616,14 +3594,11 @@
         // FUNCIONES DE CALENDARIOS
         window.guardarCalendarios = function() {
             const calendarios = {
-                sesiones: document.getElementById('calSesiones').value.trim(),
-                timoneles: document.getElementById('calTimoneles').value.trim(),
-                auxiliares: document.getElementById('calAuxiliares').value.trim(),
-                zodiac: document.getElementById('calZodiac').value.trim()
+                sesiones: document.getElementById('calSesiones').value.trim()
             };
             DB.set('calendarios', calendarios);
             cerrarConfiguracionCalendarios();
-            alert('✓ IDs de calendarios guardados correctamente');
+            alert('✓ ID de calendario guardado correctamente');
             render();
         };
 
@@ -3641,14 +3616,7 @@
             const iframe = document.getElementById('iframeCalendario');
             const titulo = document.getElementById('tituloCalendario');
             
-            const titulos = {
-                'sesiones': '📅 Calendario de Sesiones',
-                'timoneles': '👤 Calendario de Timoneles',
-                'auxiliares': '🆘 Calendario de Auxiliares',
-                'zodiac': '🚤 Calendario de Zodiac'
-            };
-            
-            titulo.textContent = titulos[tipo];
+            titulo.textContent = '📅 Calendario de Sesiones';
             
             // URL completa del calendario embebido con modo mensual
             const calendarUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=Europe/Madrid&mode=MONTH&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&showTz=0`;
