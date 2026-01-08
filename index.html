@@ -971,6 +971,7 @@
                                         <option>Menores</option>
                                         <option>Terapéutico</option>
                                         <option>Empresa</option>
+                                        <option>Tierra</option>
                                     </select>
                                 </div>
                             </div>
@@ -990,20 +991,23 @@
                                 </div>
                             </div>
                             
+                            <div class="grid md:grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">Zodiac (Opcional)</label>
+                                    <select id="sZodiac" class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <option value="">Seleccionar zodiac...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
                             <div id="camposAdicionales" class="hidden">
                                 <div class="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg mb-4">
-                                    <p class="font-bold text-yellow-800 mb-2">⚠️ Este tipo de sesión requiere Auxiliar y Zodiac</p>
-                                    <div class="grid md:grid-cols-2 gap-4">
+                                    <p class="font-bold text-yellow-800 mb-2">⚠️ Este tipo de sesión requiere Auxiliar</p>
+                                    <div class="grid md:grid-cols-1 gap-4">
                                         <div>
                                             <label class="block text-sm font-bold mb-2">Auxiliar</label>
                                             <select id="sAuxiliar" class="w-full px-4 py-3 border-2 rounded-lg">
                                                 <option value="">Seleccionar auxiliar...</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-bold mb-2">Zodiac</label>
-                                            <select id="sZodiac" class="w-full px-4 py-3 border-2 rounded-lg">
-                                                <option value="">Seleccionar zodiac...</option>
                                             </select>
                                         </div>
                                     </div>
@@ -2561,36 +2565,106 @@
             }
         }
 
+        function enviarWhatsAppDesasignacion(sesionAnterior, personalDesasignado) {
+            if (!sesionAnterior || personalDesasignado.length === 0) return;
+            
+            const fecha = new Date(sesionAnterior.fecha).toLocaleDateString('es-ES', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            const mensajesDesasignacion = personalDesasignado.map(item => {
+                const telefono = item.persona.telefono.replace(/\D/g, '');
+                const mensaje = `🛶 *Actualización de Sesión*\n\n` +
+                    `Has sido desasignado de la siguiente sesión:\n\n` +
+                    `📋 *Sesión:* ${sesionAnterior.nombre || sesionAnterior.tipo}\n` +
+                    `🏷️ *Tipo:* ${sesionAnterior.tipo}\n` +
+                    `📅 *Fecha:* ${fecha}\n` +
+                    `⏰ *Hora:* ${sesionAnterior.horario}\n\n` +
+                    `Tu rol anterior: ${item.rol}`;
+                
+                return {
+                    telefono: telefono,
+                    mensaje: mensaje,
+                    nombre: item.persona.nombre,
+                    rol: item.rol
+                };
+            });
+            
+            // Mostrar modal con enlaces de WhatsApp para desasignados
+            mostrarModalWhatsApp(mensajesDesasignacion);
+        }
+
         // SESIONES
         window.actualizarCamposSesion = function() {
             const tipoSesion = document.getElementById('sTipo').value;
-            const tiposConAdicionales = ['Menores', 'Once', 'Paradragón'];
+            const tiposConAuxiliarObligatorio = ['Menores', 'Once', 'Paradragón'];
+            const tiposConZodiacObligatorio = ['Menores', 'Once', 'Paradragón'];
+            
             const camposAdicionales = document.getElementById('camposAdicionales');
             const selectAuxiliar = document.getElementById('sAuxiliar');
             const selectZodiac = document.getElementById('sZodiac');
+            const selectTimonel = document.getElementById('sTimonel');
+            const selectBarco = document.getElementById('sBarco');
             
-            if (tiposConAdicionales.includes(tipoSesion)) {
-                // Mostrar campos y marcarlos como requeridos
-                camposAdicionales.classList.remove('hidden');
-                selectAuxiliar.required = true;
-                selectZodiac.required = true;
-                
-                // Cargar opciones de auxiliares
-                const auxiliares = DB.get('auxiliares') || [];
-                selectAuxiliar.innerHTML = '<option value="">Seleccionar auxiliar...</option>' +
-                    auxiliares.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
-                
-                // Cargar opciones de zodiac
-                const zodiac = DB.get('zodiac') || [];
-                selectZodiac.innerHTML = '<option value="">Seleccionar zodiac...</option>' +
-                    zodiac.map(z => `<option value="${z.id}">${z.nombre}</option>`).join('');
-            } else {
-                // Ocultar campos y quitar requerimiento
-                camposAdicionales.classList.add('hidden');
+            // Cargar opciones de zodiac siempre (ahora está visible siempre)
+            const zodiac = DB.get('zodiac') || [];
+            selectZodiac.innerHTML = '<option value="">Seleccionar zodiac...</option>' +
+                zodiac.map(z => `<option value="${z.id}">${z.nombre}</option>`).join('');
+            
+            // Tipo Tierra: Nada es obligatorio
+            if (tipoSesion === 'Tierra') {
+                selectTimonel.required = false;
+                selectBarco.required = false;
                 selectAuxiliar.required = false;
                 selectZodiac.required = false;
+                camposAdicionales.classList.add('hidden');
                 selectAuxiliar.value = '';
-                selectZodiac.value = '';
+                
+                // Cambiar labels para indicar que son opcionales
+                const labelTimonel = selectTimonel.previousElementSibling;
+                const labelBarco = selectBarco.previousElementSibling;
+                const labelZodiac = selectZodiac.previousElementSibling;
+                if (labelTimonel) labelTimonel.textContent = 'Timonel (Opcional)';
+                if (labelBarco) labelBarco.textContent = 'Barco (Opcional)';
+                if (labelZodiac) labelZodiac.textContent = 'Zodiac (Opcional)';
+            } else {
+                // Para otros tipos, timonel y barco son obligatorios
+                selectTimonel.required = true;
+                selectBarco.required = true;
+                
+                // Restaurar labels normales
+                const labelTimonel = selectTimonel.previousElementSibling;
+                const labelBarco = selectBarco.previousElementSibling;
+                const labelZodiac = selectZodiac.previousElementSibling;
+                if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado';
+                if (labelBarco) labelBarco.textContent = 'Barco Asignado';
+                
+                // Zodiac es obligatorio solo para ciertos tipos
+                if (tiposConZodiacObligatorio.includes(tipoSesion)) {
+                    selectZodiac.required = true;
+                    if (labelZodiac) labelZodiac.textContent = 'Zodiac (Obligatorio)';
+                } else {
+                    selectZodiac.required = false;
+                    if (labelZodiac) labelZodiac.textContent = 'Zodiac (Opcional)';
+                }
+                
+                // Mostrar/ocultar campo de auxiliar según tipo
+                if (tiposConAuxiliarObligatorio.includes(tipoSesion)) {
+                    camposAdicionales.classList.remove('hidden');
+                    selectAuxiliar.required = true;
+                    
+                    // Cargar opciones de auxiliares
+                    const auxiliares = DB.get('auxiliares') || [];
+                    selectAuxiliar.innerHTML = '<option value="">Seleccionar auxiliar...</option>' +
+                        auxiliares.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
+                } else {
+                    camposAdicionales.classList.add('hidden');
+                    selectAuxiliar.required = false;
+                    selectAuxiliar.value = '';
+                }
             }
             
             verificarPersonalAdicional();
@@ -2997,7 +3071,8 @@
             
             const fecha = document.getElementById('sFecha').value;
             const horario = document.getElementById('sHorario').value;
-            const timonelId = parseInt(document.getElementById('sTimonel').value);
+            const timonelIdValue = document.getElementById('sTimonel').value;
+            const timonelId = timonelIdValue ? parseInt(timonelIdValue) : null;
             
             // Obtener IDs de personal adicional
             const timonel2Id = document.getElementById('sTimonel2').value ? parseInt(document.getElementById('sTimonel2').value) : null;
@@ -3055,7 +3130,7 @@
                 }
             }
             
-            // Validar que no haya duplicados de timoneles o auxiliares en la misma hora
+            // Validar que no haya duplicados de timoneles o auxiliares en la misma hora (solo si tipo no es Tierra)
             const sesiones = DB.get('sesiones') || [];
             const sesionesEnMismaHora = sesiones.filter(s => 
                 s.fecha === fecha && 
@@ -3063,18 +3138,20 @@
                 (!editingSesionId || s.id !== editingSesionId)
             );
             
-            // Verificar timoneles
-            const timonelesDuplicados = sesionesEnMismaHora.filter(s => 
-                s.timonelId === timonelId || 
-                s.timonel2Id === timonelId ||
-                (timonel2Id && (s.timonelId === timonel2Id || s.timonel2Id === timonel2Id))
-            );
-            
-            if (timonelesDuplicados.length > 0) {
-                const users = DB.get('users') || [];
-                const timonel = users.find(u => u.id === timonelId);
-                alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
-                return;
+            // Verificar timoneles (solo si no es tipo Tierra)
+            if (tipoSesion !== 'Tierra' && timonelId) {
+                const timonelesDuplicados = sesionesEnMismaHora.filter(s => 
+                    s.timonelId === timonelId || 
+                    s.timonel2Id === timonelId ||
+                    (timonel2Id && (s.timonelId === timonel2Id || s.timonel2Id === timonel2Id))
+                );
+                
+                if (timonelesDuplicados.length > 0) {
+                    const users = DB.get('users') || [];
+                    const timonel = users.find(u => u.id === timonelId);
+                    alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
+                    return;
+                }
             }
             
             // Verificar auxiliares
@@ -3092,21 +3169,58 @@
                 }
             }
             
-            // Validar barco seleccionado
-            const barcoId = parseInt(document.getElementById('sBarco').value);
-            if (!barcoId) {
+            // Validar barco seleccionado (solo si tipo no es Tierra)
+            const barcoIdValue = document.getElementById('sBarco').value;
+            const barcoId = barcoIdValue ? parseInt(barcoIdValue) : null;
+            
+            if (tipoSesion !== 'Tierra' && !barcoId) {
                 alert('⚠️ Debes seleccionar un barco');
                 return;
             }
 
-            // Validar que el barco no esté ocupado en la misma fecha y hora
-            const barcoOcupado = sesionesEnMismaHora.find(s => s.barcoId === barcoId);
+            // Validar que el barco no esté ocupado en la misma fecha y hora (solo si tipo no es Tierra)
+            if (tipoSesion !== 'Tierra' && barcoId) {
+                const barcoOcupado = sesionesEnMismaHora.find(s => s.barcoId === barcoId);
+                
+                if (barcoOcupado) {
+                    const barcos = DB.get('barcos') || [];
+                    const barco = barcos.find(b => b.id === barcoId);
+                    alert(`⚠️ El barco "${barco ? barco.nombre : ''}" ya está asignado a otra sesión el ${new Date(fecha).toLocaleDateString('es-ES')} a las ${horario}`);
+                    return;
+                }
+            }
             
-            if (barcoOcupado) {
-                const barcos = DB.get('barcos') || [];
-                const barco = barcos.find(b => b.id === barcoId);
-                alert(`⚠️ El barco "${barco ? barco.nombre : ''}" ya está asignado a otra sesión el ${new Date(fecha).toLocaleDateString('es-ES')} a las ${horario}`);
-                return;
+            // Detectar cambios en el personal (solo si estamos editando)
+            let personalDesasignado = [];
+            let sesionAnterior = null;
+            
+            if (editingSesionId) {
+                const data = DB.get('sesiones') || [];
+                sesionAnterior = data.find(s => s.id === editingSesionId);
+                
+                if (sesionAnterior) {
+                    // Detectar personal desasignado
+                    if (sesionAnterior.timonelId && sesionAnterior.timonelId !== timonelId) {
+                        const t = users.find(u => u.id === sesionAnterior.timonelId);
+                        if (t && t.telefono) personalDesasignado.push({ persona: t, rol: 'Timonel' });
+                    }
+                    if (sesionAnterior.timonel2Id && sesionAnterior.timonel2Id !== timonel2Id) {
+                        const t2 = users.find(u => u.id === sesionAnterior.timonel2Id);
+                        if (t2 && t2.telefono) personalDesasignado.push({ persona: t2, rol: 'Timonel 2' });
+                    }
+                    if (sesionAnterior.auxiliarId && sesionAnterior.auxiliarId !== auxiliarId) {
+                        const a = auxiliares.find(aux => aux.id === sesionAnterior.auxiliarId);
+                        if (a && a.telefono) personalDesasignado.push({ persona: a, rol: 'Auxiliar' });
+                    }
+                    if (sesionAnterior.auxiliar2Id && sesionAnterior.auxiliar2Id !== auxiliar2Id) {
+                        const a2 = auxiliares.find(aux => aux.id === sesionAnterior.auxiliar2Id);
+                        if (a2 && a2.telefono) personalDesasignado.push({ persona: a2, rol: 'Auxiliar 2' });
+                    }
+                    if (sesionAnterior.zodiacId && sesionAnterior.zodiacId !== zodiacId) {
+                        const z = zodiac.find(zod => zod.id === sesionAnterior.zodiacId);
+                        if (z && z.telefono) personalDesasignado.push({ persona: z, rol: 'Zodiac' });
+                    }
+                }
             }
             
             const sesionData = {
@@ -3116,19 +3230,20 @@
                 representante: document.getElementById('sRepresentante').value,
                 telefonoRepresentante: document.getElementById('sTelefonoRepresentante').value,
                 tipo: tipoSesion,
-                timonelId: timonelId,
-                barcoId: barcoId,
                 participantes: [...participantesSesion]
             };
             
-            // Añadir auxiliar y zodiac si el tipo de sesión lo requiere
-            const tiposConAdicionales = ['Menores', 'Once', 'Paradragón'];
-            if (tiposConAdicionales.includes(tipoSesion)) {
-                if (auxiliarId) sesionData.auxiliarId = auxiliarId;
-                if (zodiacId) sesionData.zodiacId = zodiacId;
-            }
+            // Añadir timonel y barco solo si están presentes
+            if (timonelId) sesionData.timonelId = timonelId;
+            if (barcoId) sesionData.barcoId = barcoId;
             
-            // Añadir timonel2 y auxiliar2 si están seleccionados (independiente del número de participantes)
+            // Añadir zodiac si está seleccionado (para todos los tipos)
+            if (zodiacId) sesionData.zodiacId = zodiacId;
+            
+            // Añadir auxiliar si está seleccionado
+            if (auxiliarId) sesionData.auxiliarId = auxiliarId;
+            
+            // Añadir timonel2 y auxiliar2 si están seleccionados
             if (timonel2Id) sesionData.timonel2Id = timonel2Id;
             if (auxiliar2Id) sesionData.auxiliar2Id = auxiliar2Id;
             
@@ -3147,14 +3262,18 @@
             }
             
             DB.set('sesiones', data);
+            
+            // Enviar WhatsApp automáticamente al personal asignado
+            enviarWhatsAppSesion(sesionGuardadaId);
+            
+            // Enviar WhatsApp de desasignación si hay personal desasignado
+            if (personalDesasignado.length > 0) {
+                enviarWhatsAppDesasignacion(sesionAnterior, personalDesasignado);
+            }
+            
             participantesSesion = [];
             editingSesionId = null;
             render();
-            
-            // Preguntar si quiere enviar WhatsApp
-            if (confirm('✅ Sesión guardada correctamente.\n\n¿Desea enviar notificación por WhatsApp al personal asignado?')) {
-                enviarWhatsAppSesion(sesionGuardadaId);
-            }
         };
 
         window.eliminarSesion = function(id) {
