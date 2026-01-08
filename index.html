@@ -2382,157 +2382,6 @@
         };
 
         // WHATSAPP
-        // Función para detectar cambios de personal y enviar WhatsApp automáticamente
-        function enviarWhatsAppCambiosPersonal(sesionId, sesionAnterior) {
-            const sesiones = DB.get('sesiones') || [];
-            const sesion = sesiones.find(s => s.id === sesionId);
-            if (!sesion) return;
-
-            const users = DB.get('users') || [];
-            const auxiliares = DB.get('auxiliares') || [];
-            const zodiac = DB.get('zodiac') || [];
-            const barcos = DB.get('barcos') || [];
-            
-            const mensajes = [];
-            
-            // Preparar información de la sesión
-            const fecha = new Date(sesion.fecha).toLocaleDateString('es-ES', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            });
-            const barco = barcos.find(b => b.id === sesion.barcoId);
-            
-            const mensajeBase = `🛶 *CDP Sevilla-Dragón*\n\n` +
-                `📋 *Sesión:* ${sesion.nombre || sesion.tipo}\n` +
-                `🏷️ *Tipo:* ${sesion.tipo}\n` +
-                `📅 *Fecha:* ${fecha}\n` +
-                `⏰ *Hora:* ${sesion.horario}\n` +
-                (barco ? `🛶 *Barco:* ${barco.nombre}\n` : '') +
-                `👤 *Representante:* ${sesion.representante}\n` +
-                `📞 *Teléfono:* ${sesion.telefonoRepresentante}\n` +
-                `👥 *Participantes:* ${sesion.participantes.length}\n\n`;
-
-            // Función auxiliar para agregar mensaje de asignación
-            const agregarMensajeAsignacion = (persona, rol, mensajeExtra = '') => {
-                if (persona && persona.telefono) {
-                    const telefono = persona.telefono.replace(/\D/g, '');
-                    if (telefono) {
-                        mensajes.push({
-                            telefono: telefono,
-                            mensaje: mensajeBase + `✅ *Has sido asignado como ${rol}*` + (mensajeExtra ? `\n${mensajeExtra}` : ''),
-                            nombre: persona.nombre,
-                            rol: rol,
-                            tipo: 'asignacion'
-                        });
-                    }
-                }
-            };
-            
-            // Función auxiliar para agregar mensaje de desasignación
-            const agregarMensajeDesasignacion = (personaId, tabla, rol) => {
-                let persona = null;
-                if (tabla === 'users') persona = users.find(u => u.id === personaId);
-                if (tabla === 'auxiliares') persona = auxiliares.find(a => a.id === personaId);
-                if (tabla === 'zodiac') persona = zodiac.find(z => z.id === personaId);
-                
-                if (persona && persona.telefono) {
-                    const telefono = persona.telefono.replace(/\D/g, '');
-                    if (telefono) {
-                        mensajes.push({
-                            telefono: telefono,
-                            mensaje: `🛶 *CDP Sevilla-Dragón*\n\n❌ *Has sido desasignado*\n\n` +
-                                    `📋 *Sesión:* ${sesion.nombre || sesion.tipo}\n` +
-                                    `📅 *Fecha:* ${fecha}\n` +
-                                    `⏰ *Hora:* ${sesion.horario}\n` +
-                                    `👤 *Tu rol anterior:* ${rol}\n\n` +
-                                    `ℹ️ Se ha realizado un cambio en la asignación de personal.`,
-                            nombre: persona.nombre,
-                            rol: rol,
-                            tipo: 'desasignacion'
-                        });
-                    }
-                }
-            };
-
-            // Si es una sesión nueva (no hay sesionAnterior)
-            if (!sesionAnterior) {
-                // Enviar mensajes a todo el personal asignado
-                const timonel = users.find(u => u.id === sesion.timonelId);
-                const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
-                const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
-                const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
-                const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
-                
-                agregarMensajeAsignacion(timonel, 'Timonel Principal');
-                if (timonel2) agregarMensajeAsignacion(timonel2, 'Timonel 2');
-                if (auxiliar) agregarMensajeAsignacion(auxiliar, 'Auxiliar Principal');
-                if (auxiliar2) agregarMensajeAsignacion(auxiliar2, 'Auxiliar 2');
-                if (zodiacPersona) agregarMensajeAsignacion(zodiacPersona, 'Zodiac');
-            } else {
-                // Detectar cambios de personal y enviar mensajes apropiados
-                
-                // Timonel Principal
-                if (sesion.timonelId !== sesionAnterior.timonelId) {
-                    if (sesionAnterior.timonelId) {
-                        agregarMensajeDesasignacion(sesionAnterior.timonelId, 'users', 'Timonel Principal');
-                    }
-                    const nuevoTimonel = users.find(u => u.id === sesion.timonelId);
-                    agregarMensajeAsignacion(nuevoTimonel, 'Timonel Principal');
-                }
-                
-                // Timonel 2
-                if (sesion.timonel2Id !== sesionAnterior.timonel2Id) {
-                    if (sesionAnterior.timonel2Id) {
-                        agregarMensajeDesasignacion(sesionAnterior.timonel2Id, 'users', 'Timonel 2');
-                    }
-                    if (sesion.timonel2Id) {
-                        const nuevoTimonel2 = users.find(u => u.id === sesion.timonel2Id);
-                        agregarMensajeAsignacion(nuevoTimonel2, 'Timonel 2');
-                    }
-                }
-                
-                // Auxiliar Principal
-                if (sesion.auxiliarId !== sesionAnterior.auxiliarId) {
-                    if (sesionAnterior.auxiliarId) {
-                        agregarMensajeDesasignacion(sesionAnterior.auxiliarId, 'auxiliares', 'Auxiliar Principal');
-                    }
-                    if (sesion.auxiliarId) {
-                        const nuevoAuxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
-                        agregarMensajeAsignacion(nuevoAuxiliar, 'Auxiliar Principal');
-                    }
-                }
-                
-                // Auxiliar 2
-                if (sesion.auxiliar2Id !== sesionAnterior.auxiliar2Id) {
-                    if (sesionAnterior.auxiliar2Id) {
-                        agregarMensajeDesasignacion(sesionAnterior.auxiliar2Id, 'auxiliares', 'Auxiliar 2');
-                    }
-                    if (sesion.auxiliar2Id) {
-                        const nuevoAuxiliar2 = auxiliares.find(a => a.id === sesion.auxiliar2Id);
-                        agregarMensajeAsignacion(nuevoAuxiliar2, 'Auxiliar 2');
-                    }
-                }
-                
-                // Zodiac
-                if (sesion.zodiacId !== sesionAnterior.zodiacId) {
-                    if (sesionAnterior.zodiacId) {
-                        agregarMensajeDesasignacion(sesionAnterior.zodiacId, 'zodiac', 'Zodiac');
-                    }
-                    if (sesion.zodiacId) {
-                        const nuevoZodiac = zodiac.find(z => z.id === sesion.zodiacId);
-                        agregarMensajeAsignacion(nuevoZodiac, 'Zodiac');
-                    }
-                }
-            }
-
-            // Si hay mensajes que enviar, mostrar modal automáticamente
-            if (mensajes.length > 0) {
-                mostrarModalWhatsApp(mensajes);
-            }
-        }
-
         function enviarWhatsAppSesion(sesionId) {
             const sesiones = DB.get('sesiones') || [];
             const sesion = sesiones.find(s => s.id === sesionId);
@@ -2712,136 +2561,17 @@
             }
         }
 
-        // SISTEMA DE RECORDATORIOS AUTOMÁTICOS 24H ANTES
-        function verificarYEnviarRecordatorios() {
-            const sesiones = DB.get('sesiones') || [];
-            const ahora = new Date();
-            const en24horas = new Date(ahora.getTime() + (24 * 60 * 60 * 1000));
-            const en24horas30min = new Date(ahora.getTime() + (24.5 * 60 * 60 * 1000));
-            
-            // Obtener recordatorios ya enviados
-            const recordatoriosEnviados = DB.get('recordatoriosEnviados') || [];
-            
-            sesiones.forEach(sesion => {
-                // No enviar recordatorios para sesiones cerradas o canceladas
-                if (sesion.cerrada) return;
-                
-                const incidencias = DB.get('incidencias') || [];
-                const incidencia = incidencias.find(inc => inc.sesionId === sesion.id);
-                if (incidencia && incidencia.cancelado) return;
-                
-                // Parsear fecha y hora de la sesión
-                const [year, month, day] = sesion.fecha.split('-');
-                const [hora, minuto] = sesion.horario.split(':');
-                const fechaHoraSesion = new Date(year, month - 1, day, hora, minuto);
-                
-                // Verificar si la sesión está dentro de la ventana de 24h (+/- 30 min)
-                if (fechaHoraSesion >= en24horas && fechaHoraSesion <= en24horas30min) {
-                    // Verificar si ya se envió recordatorio para esta sesión
-                    const yaEnviado = recordatoriosEnviados.some(r => r.sesionId === sesion.id);
-                    
-                    if (!yaEnviado) {
-                        // Enviar recordatorio
-                        enviarRecordatorioSesion(sesion);
-                        
-                        // Registrar que se envió el recordatorio
-                        recordatoriosEnviados.push({
-                            sesionId: sesion.id,
-                            fechaEnvio: ahora.toISOString()
-                        });
-                        DB.set('recordatoriosEnviados', recordatoriosEnviados);
-                    }
-                }
-            });
-        }
-        
-        function enviarRecordatorioSesion(sesion) {
-            const users = DB.get('users') || [];
-            const auxiliares = DB.get('auxiliares') || [];
-            const zodiac = DB.get('zodiac') || [];
-            const barcos = DB.get('barcos') || [];
-            
-            const timonel = users.find(u => u.id === sesion.timonelId);
-            const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
-            const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
-            const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
-            const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
-            const barco = barcos.find(b => b.id === sesion.barcoId);
-            
-            const fecha = new Date(sesion.fecha).toLocaleDateString('es-ES', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            });
-            
-            const mensajeBase = `🔔 *RECORDATORIO - Sesión mañana*\n\n` +
-                `🛶 *CDP Sevilla-Dragón*\n\n` +
-                `📋 *Sesión:* ${sesion.nombre || sesion.tipo}\n` +
-                `🏷️ *Tipo:* ${sesion.tipo}\n` +
-                `📅 *Fecha:* ${fecha}\n` +
-                `⏰ *Hora:* ${sesion.horario}\n` +
-                (barco ? `🛶 *Barco:* ${barco.nombre}\n` : '') +
-                `👤 *Representante:* ${sesion.representante}\n` +
-                `📞 *Teléfono:* ${sesion.telefonoRepresentante}\n` +
-                `👥 *Participantes:* ${sesion.participantes.length}\n\n` +
-                `⏰ *Esta sesión es mañana a las ${sesion.horario}*\n\n`;
-            
-            const mensajes = [];
-            
-            // Función auxiliar para agregar recordatorio
-            const agregarRecordatorio = (persona, rol) => {
-                if (persona && persona.telefono) {
-                    const telefono = persona.telefono.replace(/\D/g, '');
-                    if (telefono) {
-                        mensajes.push({
-                            telefono: telefono,
-                            mensaje: mensajeBase + `👤 *Tu rol:* ${rol}`,
-                            nombre: persona.nombre,
-                            rol: rol,
-                            tipo: 'recordatorio'
-                        });
-                    }
-                }
-            };
-            
-            // Agregar recordatorios para todo el personal asignado
-            agregarRecordatorio(timonel, 'Timonel Principal');
-            if (timonel2) agregarRecordatorio(timonel2, 'Timonel 2');
-            if (auxiliar) agregarRecordatorio(auxiliar, 'Auxiliar Principal');
-            if (auxiliar2) agregarRecordatorio(auxiliar2, 'Auxiliar 2');
-            if (zodiacPersona) agregarRecordatorio(zodiacPersona, 'Zodiac');
-            
-            // Mostrar modal de WhatsApp si hay mensajes
-            if (mensajes.length > 0) {
-                console.log('📱 Recordatorio automático programado para la sesión:', sesion.nombre);
-                mostrarModalWhatsApp(mensajes);
-            }
-        }
-        
-        // Iniciar verificación periódica de recordatorios (cada 30 minutos)
-        setInterval(verificarYEnviarRecordatorios, 30 * 60 * 1000);
-        
-        // También verificar al cargar la página
-        setTimeout(verificarYEnviarRecordatorios, 5000);
-
         // SESIONES
         window.actualizarCamposSesion = function() {
             const tipoSesion = document.getElementById('sTipo').value;
-            const tiposConAuxiliarObligatorio = ['Menores', 'Once', 'Paradragón'];
-            const tiposConZodiacObligatorio = ['Menores', 'Once', 'Paradragón'];
+            const tiposConAdicionales = ['Menores', 'Once', 'Paradragón'];
             const camposAdicionales = document.getElementById('camposAdicionales');
             const selectAuxiliar = document.getElementById('sAuxiliar');
             const selectZodiac = document.getElementById('sZodiac');
             
-            // SIEMPRE mostrar los campos adicionales (zodiac siempre visible)
-            camposAdicionales.classList.remove('hidden');
-            
-            // Cargar opciones de zodiac (SIEMPRE)
-            const zodiac = DB.get('zodiac') || [];
-            
-            if (tiposConAuxiliarObligatorio.includes(tipoSesion)) {
-                // Tipos que requieren auxiliar Y zodiac OBLIGATORIOS
+            if (tiposConAdicionales.includes(tipoSesion)) {
+                // Mostrar campos y marcarlos como requeridos
+                camposAdicionales.classList.remove('hidden');
                 selectAuxiliar.required = true;
                 selectZodiac.required = true;
                 
@@ -2850,26 +2580,17 @@
                 selectAuxiliar.innerHTML = '<option value="">Seleccionar auxiliar...</option>' +
                     auxiliares.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
                 
-                // Zodiac OBLIGATORIO para estos tipos
+                // Cargar opciones de zodiac
+                const zodiac = DB.get('zodiac') || [];
                 selectZodiac.innerHTML = '<option value="">Seleccionar zodiac...</option>' +
                     zodiac.map(z => `<option value="${z.id}">${z.nombre}</option>`).join('');
-                
-                // Mostrar el select de auxiliar
-                const divAuxiliar = selectAuxiliar.closest('div');
-                if (divAuxiliar) divAuxiliar.style.display = 'block';
             } else {
-                // Tipos que NO requieren auxiliar y zodiac es OPCIONAL
+                // Ocultar campos y quitar requerimiento
+                camposAdicionales.classList.add('hidden');
                 selectAuxiliar.required = false;
-                selectAuxiliar.value = '';
                 selectZodiac.required = false;
-                
-                // Zodiac OPCIONAL pero VISIBLE
-                selectZodiac.innerHTML = '<option value="">Seleccionar zodiac (opcional)...</option>' +
-                    zodiac.map(z => `<option value="${z.id}">${z.nombre}</option>`).join('');
-                
-                // Ocultar el select de auxiliar en tipos sin auxiliar obligatorio
-                const divAuxiliar = selectAuxiliar.closest('div');
-                if (divAuxiliar) divAuxiliar.style.display = 'none';
+                selectAuxiliar.value = '';
+                selectZodiac.value = '';
             }
             
             verificarPersonalAdicional();
@@ -3400,12 +3121,12 @@
                 participantes: [...participantesSesion]
             };
             
-            // Añadir zodiac siempre si está seleccionado (no solo para tipos específicos)
-            if (zodiacId) sesionData.zodiacId = zodiacId;
-            
-            // Añadir auxiliar solo si el tipo lo requiere o si está seleccionado
-            const tiposConAuxiliarObligatorio = ['Menores', 'Once', 'Paradragón'];
-            if (auxiliarId) sesionData.auxiliarId = auxiliarId;
+            // Añadir auxiliar y zodiac si el tipo de sesión lo requiere
+            const tiposConAdicionales = ['Menores', 'Once', 'Paradragón'];
+            if (tiposConAdicionales.includes(tipoSesion)) {
+                if (auxiliarId) sesionData.auxiliarId = auxiliarId;
+                if (zodiacId) sesionData.zodiacId = zodiacId;
+            }
             
             // Añadir timonel2 y auxiliar2 si están seleccionados (independiente del número de participantes)
             if (timonel2Id) sesionData.timonel2Id = timonel2Id;
@@ -3413,12 +3134,10 @@
             
             const data = DB.get('sesiones') || [];
             let sesionGuardadaId;
-            let sesionAnterior = null;
             
             if (editingSesionId) {
                 const index = data.findIndex(s => s.id === editingSesionId);
                 if (index >= 0) {
-                    sesionAnterior = {...data[index]}; // Guardar sesión anterior para detectar cambios
                     data[index] = { ...sesionData, id: editingSesionId };
                 }
                 sesionGuardadaId = editingSesionId;
@@ -3432,8 +3151,10 @@
             editingSesionId = null;
             render();
             
-            // Enviar WhatsApp automáticamente (sin preguntar)
-            enviarWhatsAppCambiosPersonal(sesionGuardadaId, sesionAnterior);
+            // Preguntar si quiere enviar WhatsApp
+            if (confirm('✅ Sesión guardada correctamente.\n\n¿Desea enviar notificación por WhatsApp al personal asignado?')) {
+                enviarWhatsAppSesion(sesionGuardadaId);
+            }
         };
 
         window.eliminarSesion = function(id) {
