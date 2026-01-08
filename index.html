@@ -122,106 +122,6 @@
         }
 
 
-        // Función para generar URL de Google Calendar
-        function generarURLGoogleCalendar(sesion) {
-            const users = DB.get('users') || [];
-            const auxiliares = DB.get('auxiliares') || [];
-            const zodiac = DB.get('zodiac') || [];
-            const barcos = DB.get('barcos') || [];
-
-            const timonel = users.find(u => u.id === sesion.timonelId);
-            const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
-            const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
-            const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
-            const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
-            const barco = barcos.find(b => b.id === sesion.barcoId);
-
-            // Título del evento
-            const titulo = `${sesion.nombre || sesion.tipo} - CDP Sevilla-Dragón`;
-
-            // Construir descripción simple con HTML
-            let descripcion = `<h2>CDP SEVILLA-DRAGÓN</h2>`;
-            
-            descripcion += `<p><strong>Nombre de la sesión:</strong> ${sesion.nombre || sesion.tipo}</p>`;
-            descripcion += `<p><strong>Fecha y hora:</strong> ${new Date(sesion.fecha).toLocaleDateString('es-ES', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})} - ${sesion.horario}</p>`;
-            descripcion += `<p><strong>Tipo:</strong> ${sesion.tipo}</p>`;
-            
-            if (sesion.representante) {
-                descripcion += `<p><strong>Representante:</strong> ${sesion.representante}</p>`;
-                if (sesion.telefonoRepresentante) {
-                    descripcion += `<p><strong>TF del representante:</strong> ${sesion.telefonoRepresentante}</p>`;
-                }
-            }
-            
-            if (barco) {
-                descripcion += `<p><strong>Barco asignado:</strong> ${barco.nombre}</p>`;
-            }
-            
-            // Mostrar todos los timoneles
-            if (timonel) {
-                descripcion += `<p><strong>Timonel${timonel2 ? ' 1' : ''}:</strong> ${timonel.nombre}</p>`;
-            }
-            if (timonel2) {
-                descripcion += `<p><strong>Timonel 2:</strong> ${timonel2.nombre}</p>`;
-            }
-            
-            // Mostrar todos los auxiliares
-            if (auxiliar) {
-                descripcion += `<p><strong>Auxiliar${auxiliar2 ? ' 1' : ''}:</strong> ${auxiliar.nombre}</p>`;
-            }
-            if (auxiliar2) {
-                descripcion += `<p><strong>Auxiliar 2:</strong> ${auxiliar2.nombre}</p>`;
-            }
-            
-            if (zodiacPersona) {
-                descripcion += `<p><strong>Zodiac:</strong> ${zodiacPersona.nombre}</p>`;
-            }
-            
-            descripcion += `<p><strong>Número de participantes:</strong> ${sesion.participantes.length}</p>`;
-
-            // Calcular fechas en formato Google Calendar: YYYYMMDDTHHMMSS (hora flotante)
-            // Este formato se interpreta en la zona horaria del calendario del usuario
-            const [year, month, day] = sesion.fecha.split('-');
-            const [hours, minutes] = sesion.horario.split(':');
-            
-            // Formatear directamente sin zona horaria (hora flotante)
-            const formatearFechaHora = (y, m, d, h, min) => {
-                return `${y}${m}${d}T${h}${min}00`;
-            };
-            
-            // Calcular hora de fin (90 minutos después)
-            let horaFin = parseInt(hours);
-            let minutosFin = parseInt(minutes) + 90;
-            
-            // Si los minutos pasan de 60, ajustar horas
-            if (minutosFin >= 60) {
-                horaFin += Math.floor(minutosFin / 60);
-                minutosFin = minutosFin % 60;
-            }
-            
-            // Si la hora pasa de 24, ajustar al día siguiente
-            let diaFin = parseInt(day);
-            if (horaFin >= 24) {
-                horaFin = horaFin % 24;
-                diaFin += 1;
-            }
-            
-            const fechaInicio = formatearFechaHora(year, month, day, hours, minutes);
-            const fechaFin = formatearFechaHora(year, month, String(diaFin).padStart(2, '0'), String(horaFin).padStart(2, '0'), String(minutosFin).padStart(2, '0'));
-
-            // Construir URL de Google Calendar (sin ctz para usar hora flotante)
-            const baseURL = 'https://calendar.google.com/calendar/render';
-            const params = new URLSearchParams({
-                action: 'TEMPLATE',
-                text: titulo,
-                dates: `${fechaInicio}/${fechaFin}`,
-                details: descripcion,
-                location: 'CDP Sevilla-Dragón'
-            });
-
-            return `${baseURL}?${params.toString()}`;
-        }
-
         // Función para calcular edad de participante
         function calcularEdadParticipante(fechaNac) {
             if (!fechaNac) return 0;
@@ -234,27 +134,6 @@
             if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
             return edad;
         }
-
-        // Función para abrir Google Calendar con el evento
-        window.abrirGoogleCalendar = function(sesionId) {
-            const sesiones = DB.get('sesiones') || [];
-            const sesion = sesiones.find(s => s.id === sesionId);
-            if (!sesion) return;
-
-            const url = generarURLGoogleCalendar(sesion);
-            window.open(url, '_blank');
-            
-            // Marcar como exportado a Google Calendar
-            const index = sesiones.findIndex(s => s.id === sesionId);
-            if (index >= 0) {
-                sesiones[index].exportadoGoogleCalendar = true;
-                DB.set('sesiones', sesiones);
-                // Re-renderizar para actualizar el color del botón
-                if (currentUser && currentUser.role === 'admin') {
-                    render();
-                }
-            }
-        };
 
         
         // Inicializar datos
@@ -1096,7 +975,6 @@
                                     const incidencia = incidencias.find(inc => inc.sesionId === s.id);
                                     const tieneCancelacion = incidencia && incidencia.cancelado;
                                     const tieneIncidencias = incidencia && incidencia.tiposIncidencia && incidencia.tiposIncidencia.length > 0;
-                                    const exportadoGCal = s.exportadoGoogleCalendar || false;
                                     return `
                                     <div class="border-2 rounded-lg p-5 hover:border-blue-400 ${s.cerrada ? 'bg-gray-100 border-gray-400' : ''}">
                                         <div class="flex justify-between">
@@ -1161,7 +1039,6 @@
                                                     <button onclick="editarSesion(${s.id})" class="bg-yellow-100 text-yellow-700 px-4 py-2 rounded font-bold">✏️ Editar</button>
                                                 ` : ''}
                                                 <button onclick="verParticipantes(${s.id})" class="bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold">👥 Ver</button>
-                                                <button onclick="abrirGoogleCalendar(${s.id})" class="${exportadoGCal ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-4 py-2 rounded font-bold">📅 ${exportadoGCal ? 'Google Calendar ✓' : 'Google Calendar'}</button>
                                                 ${!s.cerrada ? `
                                                     <button onclick="enviarWhatsAppSesion(${s.id})" class="bg-green-100 text-green-700 px-4 py-2 rounded font-bold">📱 WhatsApp</button>
                                                     <button onclick="generarQR(${s.id})" class="bg-purple-100 text-purple-700 px-4 py-2 rounded font-bold">📱 QR</button>
@@ -3054,11 +2931,6 @@
         window.guardarSesion = function(e) {
             e.preventDefault();
             
-            if (participantesSesion.length === 0) {
-                alert('⚠️ Debes añadir al menos un participante');
-                return;
-            }
-            
             // Solo validar formato de fechas si están presentes
             for (let p of participantesSesion) {
                 if (p.fechaNacimiento && p.fechaNacimiento.trim() !== '') {
@@ -3868,125 +3740,6 @@
             URL.revokeObjectURL(url);
         };
 
-        window.exportarCalendarioTimoneles = function() {
-            const sesiones = DB.get('sesiones') || [];
-            const users = DB.get('users') || [];
-            const barcos = DB.get('barcos') || [];
-            
-            const eventos = [];
-            sesiones.forEach(s => {
-                const timonel = users.find(u => u.id === s.timonelId);
-                const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
-                const barco = barcos.find(b => b.id === s.barcoId);
-                
-                if (timonel) {
-                    eventos.push({
-                        id: `${s.id}-t1`,
-                        fecha: s.fecha,
-                        horario: s.horario,
-                        titulo: `${timonel.nombre} - ${s.nombre || s.tipo}`,
-                        descripcion: `Timonel: ${timonel.nombre}\nTipo: ${s.tipo}\n${barco ? `Barco: ${barco.nombre}\n` : ''}Participantes: ${s.participantes.length}`,
-                        ubicacion: 'CDP Sevilla-Dragón'
-                    });
-                }
-                
-                if (timonel2) {
-                    eventos.push({
-                        id: `${s.id}-t2`,
-                        fecha: s.fecha,
-                        horario: s.horario,
-                        titulo: `${timonel2.nombre} - ${s.nombre || s.tipo} (Timonel 2)`,
-                        descripcion: `Timonel 2: ${timonel2.nombre}\nTipo: ${s.tipo}\n${barco ? `Barco: ${barco.nombre}\n` : ''}Participantes: ${s.participantes.length}`,
-                        ubicacion: 'CDP Sevilla-Dragón'
-                    });
-                }
-            });
-            
-            const ics = generarICS(eventos, 'Timoneles CDP Sevilla-Dragón');
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'timoneles_cdp.ics';
-            a.click();
-            URL.revokeObjectURL(url);
-        };
-
-        window.exportarCalendarioAuxiliares = function() {
-            const sesiones = DB.get('sesiones') || [];
-            const auxiliares = DB.get('auxiliares') || [];
-            const barcos = DB.get('barcos') || [];
-            
-            const eventos = [];
-            sesiones.forEach(s => {
-                const auxiliar = auxiliares.find(a => a.id === s.auxiliarId);
-                const auxiliar2 = s.auxiliar2Id ? auxiliares.find(a => a.id === s.auxiliar2Id) : null;
-                const barco = barcos.find(b => b.id === s.barcoId);
-                
-                if (auxiliar) {
-                    eventos.push({
-                        id: `${s.id}-a1`,
-                        fecha: s.fecha,
-                        horario: s.horario,
-                        titulo: `${auxiliar.nombre} - ${s.nombre || s.tipo}`,
-                        descripcion: `Auxiliar: ${auxiliar.nombre}\nTipo: ${s.tipo}\n${barco ? `Barco: ${barco.nombre}\n` : ''}Participantes: ${s.participantes.length}`,
-                        ubicacion: 'CDP Sevilla-Dragón'
-                    });
-                }
-                
-                if (auxiliar2) {
-                    eventos.push({
-                        id: `${s.id}-a2`,
-                        fecha: s.fecha,
-                        horario: s.horario,
-                        titulo: `${auxiliar2.nombre} - ${s.nombre || s.tipo} (Auxiliar 2)`,
-                        descripcion: `Auxiliar 2: ${auxiliar2.nombre}\nTipo: ${s.tipo}\n${barco ? `Barco: ${barco.nombre}\n` : ''}Participantes: ${s.participantes.length}`,
-                        ubicacion: 'CDP Sevilla-Dragón'
-                    });
-                }
-            });
-            
-            const ics = generarICS(eventos, 'Auxiliares CDP Sevilla-Dragón');
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'auxiliares_cdp.ics';
-            a.click();
-            URL.revokeObjectURL(url);
-        };
-
-        window.exportarCalendarioZodiac = function() {
-            const sesiones = DB.get('sesiones') || [];
-            const zodiac = DB.get('zodiac') || [];
-            const barcos = DB.get('barcos') || [];
-            
-            const eventos = [];
-            sesiones.forEach(s => {
-                const zodiacPersona = zodiac.find(z => z.id === s.zodiacId);
-                const barco = barcos.find(b => b.id === s.barcoId);
-                
-                if (zodiacPersona) {
-                    eventos.push({
-                        id: `${s.id}-z`,
-                        fecha: s.fecha,
-                        horario: s.horario,
-                        titulo: `${zodiacPersona.nombre} - ${s.nombre || s.tipo}`,
-                        descripcion: `Zodiac: ${zodiacPersona.nombre}\nTipo: ${s.tipo}\n${barco ? `Barco: ${barco.nombre}\n` : ''}Participantes: ${s.participantes.length}`,
-                        ubicacion: 'CDP Sevilla-Dragón'
-                    });
-                }
-            });
-            
-            const ics = generarICS(eventos, 'Zodiac CDP Sevilla-Dragón');
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'zodiac_cdp.ics';
-            a.click();
-            URL.revokeObjectURL(url);
-        };
 
         // Función para abrir modal de incidencia
         window.abrirModalIncidencia = function(sesionId) {
