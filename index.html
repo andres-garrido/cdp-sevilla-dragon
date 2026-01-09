@@ -792,13 +792,26 @@
             const users = DB.get('users') || [];
             const timoneles = users.filter(u => u.role === 'timonel');
             
-            // Filtrar sesiones actuales y futuras (del día de hoy en adelante)
+            // Obtener fecha de hoy (inicio del día)
             const ahora = new Date();
-            const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()); // Inicio del día de hoy
+            const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()); 
+            const mañanaInicio = new Date(hoyInicio.getTime() + 24 * 60 * 60 * 1000); // Inicio de mañana
             
+            // Filtrar sesiones: solo mostrar las que NO estén cerradas O las del día de hoy (aunque estén cerradas)
+            // Las sesiones pasadas y cerradas se moverán al botón "Sesiones Pasadas"
             const sesionesFuturas = sesiones.filter(s => {
-                const fechaHoraSesion = new Date(s.fecha + ' ' + s.horario);
-                return fechaHoraSesion >= hoyInicio;
+                const fechaSesion = new Date(s.fecha);
+                const esDehoy = fechaSesion >= hoyInicio && fechaSesion < mañanaInicio;
+                
+                // Mostrar si:
+                // - Es de hoy (cerrada o no)
+                // - Es futura (cerrada o no)
+                // - Es pasada pero NO está cerrada (para que aparezca resaltada)
+                if (esDehoy) return true; // Siempre mostrar sesiones de hoy
+                if (fechaSesion >= mañanaInicio) return true; // Siempre mostrar futuras
+                if (fechaSesion < hoyInicio && !s.cerrada) return true; // Mostrar pasadas no cerradas
+                
+                return false; // Ocultar sesiones pasadas y cerradas
             });
             
             // Ordenar sesiones futuras cronológicamente (más próxima primero)
@@ -952,15 +965,18 @@
                     </div>
 
                     <div id="listaSesionesRegistradas" class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-xl font-bold mb-4">Sesiones Actuales y Futuras (${sesionesFuturas.length})</h3>
+                        <h3 class="text-xl font-bold mb-4">Sesiones Registradas (${sesionesFuturas.length})</h3>
                         ${sesionesFuturas.length === 0 ? `
                             <div class="text-center py-16">
                                 <div class="text-7xl mb-4">📅</div>
-                                <p class="text-2xl text-gray-500">No hay sesiones programadas para hoy o futuras</p>
+                                <p class="text-2xl text-gray-500">No hay sesiones registradas</p>
                             </div>
                         ` : `
                             <div class="space-y-4">
                                 ${sesionesFuturas.map(s => {
+                                    const fechaSesion = new Date(s.fecha);
+                                    const esPasadaSinCerrar = fechaSesion < hoyInicio && !s.cerrada;
+                                    
                                     const timonel = users.find(u => u.id === s.timonelId);
                                     const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
                                     const auxiliares = DB.get('auxiliares') || [];
@@ -979,7 +995,7 @@
                                     const tieneCancelacion = incidencia && incidencia.cancelado;
                                     const tieneIncidencias = incidencia && incidencia.tiposIncidencia && incidencia.tiposIncidencia.length > 0;
                                     return `
-                                    <div class="border-2 rounded-lg p-5 hover:border-blue-400 ${s.cerrada ? 'bg-gray-100 border-gray-400' : ''}">
+                                    <div class="border-2 rounded-lg p-5 hover:border-blue-400 ${s.cerrada ? 'bg-gray-100 border-gray-400' : esPasadaSinCerrar ? 'bg-cyan-50 border-cyan-400' : ''}">
                                         <div class="flex justify-between">
                                             <div class="flex-1">
                                                 <!-- Fila 1: Nombre de sesión y tipo -->
@@ -990,6 +1006,7 @@
                                                     </span>
                                                     ${tieneAsistencia ? '<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">✓ Asistencia registrada</span>' : ''}
                                                     ${s.cerrada ? '<span class="px-3 py-1 bg-red-500 text-white rounded-full text-sm font-bold">CERRADA</span>' : ''}
+                                                    ${esPasadaSinCerrar ? '<span class="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-bold">⚠️ PENDIENTE DE CERRAR</span>' : ''}
                                                     ${tieneCancelacion ? '<span class="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-bold">❌ CANCELADA</span>' : ''}
                                                     ${tieneIncidencias && !tieneCancelacion ? '<span class="px-3 py-1 bg-yellow-500 text-white rounded-full text-sm font-bold">⚠️ Incidencias</span>' : ''}
                                                 </div>
@@ -1385,22 +1402,22 @@
                             <div class="flex gap-1 flex-1">
                                 <button onclick="seleccionarCalendario('sesiones')" 
                                     class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'sesiones' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'} hover:bg-blue-600 hover:text-white rounded font-bold transition"
-                                    style="font-size: 10px;">
+                                    style="font-size: 11px;">
                                     📅 Sesiones (${eventosSesiones.length})
                                 </button>
                                 <button onclick="seleccionarCalendario('timoneles')" 
                                     class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'timoneles' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'} hover:bg-green-600 hover:text-white rounded font-bold transition"
-                                    style="font-size: 10px;">
+                                    style="font-size: 11px;">
                                     👤 Timoneles (${eventosTimoneles.length})
                                 </button>
                                 <button onclick="seleccionarCalendario('auxiliares')" 
                                     class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'auxiliares' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700'} hover:bg-orange-600 hover:text-white rounded font-bold transition"
-                                    style="font-size: 10px;">
+                                    style="font-size: 11px;">
                                     🆘 Auxiliares (${eventosAuxiliares.length})
                                 </button>
                                 <button onclick="seleccionarCalendario('zodiac')" 
                                     class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'zodiac' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'} hover:bg-purple-600 hover:text-white rounded font-bold transition"
-                                    style="font-size: 10px;">
+                                    style="font-size: 11px;">
                                     🚤 Zodiac (${eventosZodiac.length})
                                 </button>
                             </div>
@@ -1534,8 +1551,15 @@
                 const hoy = new Date();
                 const esHoy = año === hoy.getFullYear() && mes === hoy.getMonth() && dia === hoy.getDate();
                 
-                // Buscar eventos de este día
-                const eventosDelDia = eventosFiltrados.filter(e => e.fecha === fechaActual);
+                // Buscar eventos de este día y ordenarlos cronológicamente
+                const eventosDelDia = eventosFiltrados
+                    .filter(e => e.fecha === fechaActual)
+                    .sort((a, b) => {
+                        // Ordenar por horario (formato HH:MM)
+                        const [horaA, minA] = a.horario.split(':').map(Number);
+                        const [horaB, minB] = b.horario.split(':').map(Number);
+                        return (horaA * 60 + minA) - (horaB * 60 + minB);
+                    });
                 
                 // Limitar a 3 eventos visibles
                 const eventosVisibles = eventosDelDia.slice(0, 3);
@@ -3678,13 +3702,16 @@
             const zodiac = DB.get('zodiac') || [];
             const barcos = DB.get('barcos') || [];
             
-            // Filtrar sesiones pasadas (anteriores al inicio del día de hoy)
+            // Filtrar solo sesiones PASADAS (anteriores a hoy) Y CERRADAS
             const ahora = new Date();
             const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
             
             const sesionesPasadas = sesiones.filter(s => {
-                const fechaHoraSesion = new Date(s.fecha + ' ' + s.horario);
-                return fechaHoraSesion < hoyInicio;
+                const fechaSesion = new Date(s.fecha);
+                // Solo mostrar sesiones que:
+                // 1. Son anteriores a hoy (fechaSesion < hoyInicio)
+                // 2. Están cerradas (s.cerrada === true)
+                return fechaSesion < hoyInicio && s.cerrada;
             });
             
             // Ordenar sesiones pasadas cronológicamente (más reciente primero)
@@ -3700,7 +3727,7 @@
                 contenido.innerHTML = `
                     <div class="text-center py-16">
                         <div class="text-7xl mb-4">📅</div>
-                        <p class="text-2xl text-gray-500">No hay sesiones pasadas</p>
+                        <p class="text-2xl text-gray-500">No hay sesiones pasadas cerradas</p>
                     </div>
                 `;
             } else {
@@ -4216,7 +4243,14 @@
         
         window.mostrarTodosEventosDia = function(fecha, tipoCalendario) {
             const eventosCalendario = DB.get('eventosCalendario') || [];
-            const eventosFiltrados = eventosCalendario.filter(e => e.tipo === tipoCalendario && e.fecha === fecha);
+            const eventosFiltrados = eventosCalendario
+                .filter(e => e.tipo === tipoCalendario && e.fecha === fecha)
+                .sort((a, b) => {
+                    // Ordenar por horario (formato HH:MM)
+                    const [horaA, minA] = a.horario.split(':').map(Number);
+                    const [horaB, minB] = b.horario.split(':').map(Number);
+                    return (horaA * 60 + minA) - (horaB * 60 + minB);
+                });
             
             // Formato de fecha legible
             const [year, month, day] = fecha.split('-');
