@@ -2527,16 +2527,12 @@
                 if (labelBarco) labelBarco.textContent = 'Barco (Opcional)';
                 if (labelZodiac) labelZodiac.textContent = 'Zodiac (Opcional)';
             } else {
-                // Para otros tipos, timonel y barco son obligatorios
-                selectTimonel.required = true;
-                selectBarco.required = true;
+                // Para otros tipos, timonel y barco dependen de si hay participantes
                 
                 // Restaurar labels normales
                 const labelTimonel = selectTimonel.previousElementSibling;
                 const labelBarco = selectBarco.previousElementSibling;
                 const labelZodiac = selectZodiac.previousElementSibling;
-                if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado';
-                if (labelBarco) labelBarco.textContent = 'Barco Asignado';
                 
                 // Zodiac es obligatorio solo para ciertos tipos
                 if (tiposConZodiacObligatorio.includes(tipoSesion)) {
@@ -2570,8 +2566,28 @@
             const numParticipantes = participantesSesion.length;
             const tipoSesion = document.getElementById('sTipo').value;
             const camposPersonalAdicional = document.getElementById('camposPersonalAdicional');
+            const selectTimonel = document.getElementById('sTimonel');
+            const selectBarco = document.getElementById('sBarco');
             const selectTimonel2 = document.getElementById('sTimonel2');
             const selectAuxiliar2 = document.getElementById('sAuxiliar2');
+            
+            // VALIDACIÓN CRÍTICA: Timonel y Barco son obligatorios solo si hay participantes (excepto tipo Tierra)
+            if (tipoSesion !== 'Tierra') {
+                const labelTimonel = selectTimonel.previousElementSibling;
+                const labelBarco = selectBarco.previousElementSibling;
+                
+                if (numParticipantes > 0) {
+                    selectTimonel.required = true;
+                    selectBarco.required = true;
+                    if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado (Obligatorio)';
+                    if (labelBarco) labelBarco.textContent = 'Barco Asignado (Obligatorio)';
+                } else {
+                    selectTimonel.required = false;
+                    selectBarco.required = false;
+                    if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado (Opcional sin participantes)';
+                    if (labelBarco) labelBarco.textContent = 'Barco Asignado (Opcional sin participantes)';
+                }
+            }
             
             // Tipos que requieren SOLO segundo timonel cuando hay más de 20 participantes
             const tiposConSegundoTimonel = ['Veteranos', 'Iniciación', 'Formación', 'Mujer', 'Terapéutico', 'Empresa'];
@@ -3173,6 +3189,12 @@
             const timonelIdValue = document.getElementById('sTimonel').value;
             const timonelId = timonelIdValue ? parseInt(timonelIdValue) : null;
             
+            // VALIDACIÓN: Si hay participantes y no es tipo Tierra, el timonel es obligatorio
+            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && !timonelId) {
+                alert('⚠️ Debes asignar un timonel cuando hay participantes registrados');
+                return;
+            }
+            
             // Obtener IDs de personal adicional
             const timonel2Id = document.getElementById('sTimonel2').value ? parseInt(document.getElementById('sTimonel2').value) : null;
             const auxiliarId = document.getElementById('sAuxiliar').value ? parseInt(document.getElementById('sAuxiliar').value) : null;
@@ -3268,12 +3290,12 @@
                 }
             }
             
-            // Validar barco seleccionado (solo si tipo no es Tierra)
+            // Validar barco seleccionado (solo si tipo no es Tierra Y hay participantes)
             const barcoIdValue = document.getElementById('sBarco').value;
             const barcoId = barcoIdValue ? parseInt(barcoIdValue) : null;
             
-            if (tipoSesion !== 'Tierra' && !barcoId) {
-                alert('⚠️ Debes seleccionar un barco');
+            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && !barcoId) {
+                alert('⚠️ Debes seleccionar un barco cuando hay participantes registrados');
                 return;
             }
 
