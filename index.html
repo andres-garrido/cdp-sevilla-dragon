@@ -1174,14 +1174,14 @@
             }).filter(s => s.misRoles.length > 0); // Solo sesiones donde tenga al menos un rol
             
             // Separar sesiones en tres grupos
-            const sesionesHoy = todasMisSesiones.filter(s => s.fecha === hoy);
+            // Las sesiones pasadas no cerradas se mantienen en "Sesiones de Hoy" para poder cerrarlas
+            const sesionesPasadasNoCerradas = todasMisSesiones.filter(s => s.fecha < hoy && !s.cerrada).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horario.localeCompare(b.horario));
+            const sesionesHoy = [...sesionesPasadasNoCerradas, ...todasMisSesiones.filter(s => s.fecha === hoy)];
             const sesionesFuturas = todasMisSesiones.filter(s => s.fecha > hoy).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horario.localeCompare(b.horario));
             // Solo mostrar en sesiones pasadas las que están cerradas
             const sesionesPasadas = todasMisSesiones.filter(s => s.fecha < hoy && s.cerrada).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.horario.localeCompare(a.horario));
-            // Las sesiones pasadas no cerradas se quedan en futuras
-            const sesionesPasadasNoCerradas = todasMisSesiones.filter(s => s.fecha < hoy && !s.cerrada).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horario.localeCompare(b.horario));
-            // Combinar sesiones pasadas no cerradas con las futuras
-            const sesionesFuturasConPendientes = [...sesionesPasadasNoCerradas, ...sesionesFuturas];
+            // Las futuras son solo las que están realmente en el futuro
+            const sesionesFuturasConPendientes = sesionesFuturas;
 
             const renderSesion = (s, esHoy) => {
                 const asist = DB.get('asistencias') || [];
@@ -2752,13 +2752,16 @@
                 }
             }
             
-            // Tipos que requieren SOLO segundo timonel cuando hay más de 20 participantes
+            // Tipos que requieren SOLO segundo timonel cuando hay más de 19 participantes
             const tiposConSegundoTimonel = ['Veteranos', 'Iniciación', 'Formación', 'Mujer', 'Terapéutico', 'Empresa'];
             
             // Tipos que requieren auxiliar y zodiac siempre
             const tiposConAuxiliarYZodiac = ['Menores', 'Once', 'Paradragón'];
             
-            if (numParticipantes > 20) {
+            // Verificar si ya hay un segundo timonel designado
+            const yaHaySegundoTimonel = selectTimonel2 && selectTimonel2.value && selectTimonel2.value !== '';
+            
+            if (numParticipantes > 19 && !yaHaySegundoTimonel) {
                 camposPersonalAdicional.classList.remove('hidden');
                 
                 // Cargar timoneles para segundo timonel
@@ -2777,7 +2780,7 @@
                     // Cambiar el mensaje del aviso
                     const parrafo = camposPersonalAdicional.querySelector('p');
                     if (parrafo) {
-                        parrafo.textContent = 'ℹ️ Más de 20 participantes - Se requiere segundo timonel';
+                        parrafo.textContent = 'ℹ️ Más de 19 participantes - Se requiere segundo timonel';
                         parrafo.className = 'font-bold text-blue-800 mb-2';
                     }
                     
@@ -2799,7 +2802,7 @@
                     // Cambiar el mensaje del aviso
                     const parrafo = camposPersonalAdicional.querySelector('p');
                     if (parrafo) {
-                        parrafo.textContent = '⚠️ Más de 20 participantes - Se requiere segundo timonel y segundo auxiliar';
+                        parrafo.textContent = '⚠️ Más de 19 participantes - Se requiere segundo timonel y segundo auxiliar';
                         parrafo.className = 'font-bold text-orange-800 mb-2';
                     }
                     
@@ -2807,6 +2810,12 @@
                     const divAuxiliar2 = selectAuxiliar2.closest('div');
                     if (divAuxiliar2) divAuxiliar2.style.display = 'block';
                 }
+            } else if (yaHaySegundoTimonel) {
+                // Si ya hay segundo timonel designado, mantener el campo visible pero no requerido por número de participantes
+                camposPersonalAdicional.classList.remove('hidden');
+                // No cambiar el valor existente ni hacer required
+                selectTimonel2.required = false;
+                selectAuxiliar2.required = false;
             } else {
                 camposPersonalAdicional.classList.add('hidden');
                 selectTimonel2.required = false;
