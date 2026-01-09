@@ -1363,100 +1363,186 @@
         function renderCalendarios() {
             const eventosCalendario = DB.get('eventosCalendario') || [];
             
-            // Obtener mes y año actuales
-            const ahora = new Date();
-            const mesActual = ahora.getMonth();
-            const añoActual = ahora.getFullYear();
-            
-            // Filtrar eventos del mes actual
-            const eventosMesActual = eventosCalendario.filter(e => {
-                const [año, mes] = e.fecha.split('-').map(Number);
-                return mes - 1 === mesActual && año === añoActual;
-            });
+            // Obtener mes y año actuales (o del estado si existe)
+            const estadoCalendario = DB.get('estadoCalendario') || {
+                mes: new Date().getMonth(),
+                año: new Date().getFullYear(),
+                tipoActual: 'sesiones'
+            };
             
             // Agrupar eventos por tipo
-            const eventosSesiones = eventosMesActual.filter(e => e.tipo === 'sesiones');
-            const eventosTimoneles = eventosMesActual.filter(e => e.tipo === 'timoneles');
-            const eventosAuxiliares = eventosMesActual.filter(e => e.tipo === 'auxiliares');
-            const eventosZodiac = eventosMesActual.filter(e => e.tipo === 'zodiac');
+            const eventosSesiones = eventosCalendario.filter(e => e.tipo === 'sesiones');
+            const eventosTimoneles = eventosCalendario.filter(e => e.tipo === 'timoneles');
+            const eventosAuxiliares = eventosCalendario.filter(e => e.tipo === 'auxiliares');
+            const eventosZodiac = eventosCalendario.filter(e => e.tipo === 'zodiac');
 
             return `
                 <div class="container mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-6">Calendarios Internos</h2>
+                    <h2 class="text-4xl font-bold mb-6">Calendarios</h2>
                     
                     <!-- Selector de tipo de calendario -->
                     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
                         <h3 class="text-2xl font-bold mb-4">📆 Seleccionar Calendario</h3>
                         <div class="grid grid-cols-4 gap-3">
-                            <button onclick="mostrarCalendarioInterno('sesiones')" 
-                                class="px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-bold">
+                            <button onclick="seleccionarCalendario('sesiones')" 
+                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'sesiones' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'} hover:bg-blue-600 hover:text-white rounded-lg font-bold transition">
                                 📅 Sesiones (${eventosSesiones.length})
                             </button>
-                            <button onclick="mostrarCalendarioInterno('timoneles')" 
-                                class="px-6 py-4 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-bold">
+                            <button onclick="seleccionarCalendario('timoneles')" 
+                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'timoneles' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'} hover:bg-green-600 hover:text-white rounded-lg font-bold transition">
                                 👤 Timoneles (${eventosTimoneles.length})
                             </button>
-                            <button onclick="mostrarCalendarioInterno('auxiliares')" 
-                                class="px-6 py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-bold">
+                            <button onclick="seleccionarCalendario('auxiliares')" 
+                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'auxiliares' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700'} hover:bg-orange-600 hover:text-white rounded-lg font-bold transition">
                                 🆘 Auxiliares (${eventosAuxiliares.length})
                             </button>
-                            <button onclick="mostrarCalendarioInterno('zodiac')" 
-                                class="px-6 py-4 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold">
+                            <button onclick="seleccionarCalendario('zodiac')" 
+                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'zodiac' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'} hover:bg-purple-600 hover:text-white rounded-lg font-bold transition">
                                 🚤 Zodiac (${eventosZodiac.length})
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Vista de eventos por calendario -->
-                    <div id="vistaCalendario" class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold mb-4">📅 Calendario de Sesiones</h3>
-                        <p class="text-gray-600 mb-4">Mes actual: ${ahora.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
-                        
-                        ${eventosSesiones.length === 0 ? `
-                            <div class="text-center py-16">
-                                <div class="text-7xl mb-4">📅</div>
-                                <p class="text-2xl text-gray-500">No hay eventos en el calendario de sesiones este mes</p>
-                            </div>
-                        ` : `
-                            <div class="space-y-3">
-                                ${eventosSesiones.sort((a, b) => {
-                                    const fechaA = new Date(a.fecha + ' ' + a.horario);
-                                    const fechaB = new Date(b.fecha + ' ' + b.horario);
-                                    return fechaA - fechaB;
-                                }).map(e => `
-                                    <div class="border-l-4 p-4 rounded-lg hover:bg-gray-50" style="border-color: ${e.color}">
-                                        <div class="flex justify-between items-start">
-                                            <div class="flex-1">
-                                                <h4 class="text-xl font-bold mb-1">${e.titulo}</h4>
-                                                <p class="text-gray-600 mb-2">
-                                                    📅 ${new Date(e.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} 
-                                                    | ⏰ ${e.horario}
-                                                </p>
-                                                <div class="text-sm text-gray-700 whitespace-pre-line">${e.descripcion}</div>
-                                            </div>
-                                            <button onclick="verDetalleEvento(${e.sesionId})" 
-                                                class="ml-4 bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold hover:bg-blue-200">
-                                                Ver Sesión
-                                            </button>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        `}
+                    <!-- Vista de calendario mensual -->
+                    <div id="vistaCalendarioMensual" class="bg-white rounded-xl shadow-lg p-6">
+                        ${generarVistaCalendarioMensual(estadoCalendario)}
                     </div>
                     
-                    <!-- Modal para mostrar calendario específico -->
-                    <div id="modalCalendarioInterno" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onclick="cerrarCalendarioInterno()">
-                        <div class="bg-white rounded-2xl p-8 max-w-6xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
+                    <!-- Modal para detalles del evento -->
+                    <div id="modalDetalleEvento" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onclick="cerrarDetalleEvento()">
+                        <div class="bg-white rounded-2xl p-8 max-w-3xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
                             <div class="flex justify-between items-center mb-4">
-                                <h3 id="tituloCalendarioInterno" class="text-3xl font-bold"></h3>
-                                <button onclick="cerrarCalendarioInterno()" class="text-4xl hover:text-red-600">&times;</button>
+                                <h3 class="text-3xl font-bold">Detalles del Evento</h3>
+                                <button onclick="cerrarDetalleEvento()" class="text-4xl hover:text-red-600">&times;</button>
                             </div>
-                            <div id="contenidoCalendarioInterno"></div>
+                            <div id="contenidoDetalleEvento"></div>
                         </div>
                     </div>
                 </div>
             `;
+        }
+        
+        // Generar vista de calendario mensual estilo Google Calendar
+        function generarVistaCalendarioMensual(estadoCalendario) {
+            const { mes, año, tipoActual } = estadoCalendario;
+            const eventosCalendario = DB.get('eventosCalendario') || [];
+            
+            // Filtrar eventos del tipo seleccionado
+            const eventosFiltrados = eventosCalendario.filter(e => e.tipo === tipoActual);
+            
+            // Nombres de meses y días
+            const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                                 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const nombresDias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+            
+            // Obtener primer día del mes y total de días
+            const primerDia = new Date(año, mes, 1);
+            const ultimoDia = new Date(año, mes + 1, 0);
+            const totalDias = ultimoDia.getDate();
+            
+            // Obtener día de la semana (0=Domingo, 1=Lunes, etc)
+            let primerDiaSemana = primerDia.getDay();
+            // Ajustar para que Lunes sea 0
+            primerDiaSemana = primerDiaSemana === 0 ? 6 : primerDiaSemana - 1;
+            
+            // Títulos según tipo
+            const titulos = {
+                'sesiones': '📅 Calendario de Sesiones',
+                'timoneles': '👤 Calendario de Timoneles',
+                'auxiliares': '🆘 Calendario de Auxiliares',
+                'zodiac': '🚤 Calendario de Zodiac'
+            };
+            
+            const colores = {
+                'sesiones': 'bg-blue-500',
+                'timoneles': 'bg-green-500',
+                'auxiliares': 'bg-orange-500',
+                'zodiac': 'bg-purple-500'
+            };
+            
+            // Header con navegación
+            let html = `
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-3xl font-bold">${titulos[tipoActual]}</h3>
+                        <div class="flex gap-3 items-center">
+                            <button onclick="cambiarMesCalendario(-1)" 
+                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">
+                                ◀ Anterior
+                            </button>
+                            <span class="text-xl font-bold px-4">${nombresMeses[mes]} ${año}</span>
+                            <button onclick="cambiarMesCalendario(1)" 
+                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">
+                                Siguiente ▶
+                            </button>
+                            <button onclick="irAHoyCalendario()" 
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold">
+                                Hoy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Grid de días -->
+                <div class="border rounded-lg overflow-hidden">
+                    <!-- Header de días de la semana -->
+                    <div class="grid grid-cols-7 bg-gray-100 border-b">
+                        ${nombresDias.map(dia => `
+                            <div class="p-3 text-center font-bold text-gray-700 border-r last:border-r-0">
+                                ${dia}
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- Días del mes -->
+                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(120px, auto);">
+            `;
+            
+            // Agregar días vacíos al inicio
+            for (let i = 0; i < primerDiaSemana; i++) {
+                html += `<div class="border-r border-b bg-gray-50"></div>`;
+            }
+            
+            // Agregar días del mes
+            for (let dia = 1; dia <= totalDias; dia++) {
+                const fechaActual = `${año}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+                const hoy = new Date();
+                const esHoy = año === hoy.getFullYear() && mes === hoy.getMonth() && dia === hoy.getDate();
+                
+                // Buscar eventos de este día
+                const eventosDelDia = eventosFiltrados.filter(e => e.fecha === fechaActual);
+                
+                html += `
+                    <div class="border-r border-b p-2 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
+                        <div class="font-bold text-right mb-2 ${esHoy ? 'text-blue-600 text-lg' : 'text-gray-700'}">
+                            ${dia}
+                        </div>
+                        <div class="space-y-1">
+                            ${eventosDelDia.map(evento => `
+                                <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
+                                    class="${colores[tipoActual]} text-white text-xs p-1 rounded cursor-pointer hover:opacity-80 truncate"
+                                    title="${evento.titulo}">
+                                    ${evento.horario} ${evento.titulo.length > 20 ? evento.titulo.substring(0, 20) + '...' : evento.titulo}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Completar última semana con días vacíos si es necesario
+            const totalCeldas = primerDiaSemana + totalDias;
+            const celdasRestantes = (7 - (totalCeldas % 7)) % 7;
+            for (let i = 0; i < celdasRestantes; i++) {
+                html += `<div class="border-r border-b bg-gray-50"></div>`;
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            return html;
         }
 
         // INCIDENCIAS
@@ -3950,76 +4036,151 @@
         };
 
         // FUNCIONES DE CALENDARIOS
-        // Funciones para calendario interno
-        window.mostrarCalendarioInterno = function(tipo) {
-            const eventosCalendario = DB.get('eventosCalendario') || [];
-            
-            // Filtrar eventos por tipo
-            const eventosFiltrados = eventosCalendario.filter(e => e.tipo === tipo);
-            
-            // Ordenar por fecha
-            eventosFiltrados.sort((a, b) => {
-                const fechaA = new Date(a.fecha + ' ' + a.horario);
-                const fechaB = new Date(b.fecha + ' ' + b.horario);
-                return fechaA - fechaB;
-            });
-            
-            const titulos = {
-                'sesiones': '📅 Calendario de Sesiones',
-                'timoneles': '👤 Calendario de Timoneles',
-                'auxiliares': '🆘 Calendario de Auxiliares',
-                'zodiac': '🚤 Calendario de Zodiac'
+        // Funciones para calendario mensual
+        window.seleccionarCalendario = function(tipo) {
+            const estadoCalendario = DB.get('estadoCalendario') || {
+                mes: new Date().getMonth(),
+                año: new Date().getFullYear()
             };
-            
-            const colores = {
-                'sesiones': '#3b82f6',
-                'timoneles': '#10b981',
-                'auxiliares': '#f59e0b',
-                'zodiac': '#8b5cf6'
-            };
-            
-            document.getElementById('tituloCalendarioInterno').textContent = titulos[tipo] || 'Calendario';
-            
-            const contenido = document.getElementById('contenidoCalendarioInterno');
-            
-            if (eventosFiltrados.length === 0) {
-                contenido.innerHTML = `
-                    <div class="text-center py-16">
-                        <div class="text-7xl mb-4">📅</div>
-                        <p class="text-2xl text-gray-500">No hay eventos en este calendario</p>
-                    </div>
-                `;
-            } else {
-                contenido.innerHTML = `
-                    <div class="space-y-3">
-                        ${eventosFiltrados.map(e => `
-                            <div class="border-l-4 p-4 rounded-lg hover:bg-gray-50" style="border-color: ${colores[tipo]}">
-                                <div class="flex justify-between items-start">
-                                    <div class="flex-1">
-                                        <h4 class="text-xl font-bold mb-1">${e.titulo}</h4>
-                                        <p class="text-gray-600 mb-2">
-                                            📅 ${new Date(e.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} 
-                                            | ⏰ ${e.horario}
-                                        </p>
-                                        ${e.personal ? `<p class="text-sm font-bold text-gray-700 mb-2">👤 ${e.personal}</p>` : ''}
-                                        <div class="text-sm text-gray-700 whitespace-pre-line">${e.descripcion}</div>
-                                    </div>
-                                    <button onclick="verDetalleEvento(${e.sesionId}); cerrarCalendarioInterno();" 
-                                        class="ml-4 bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold hover:bg-blue-200">
-                                        Ver Sesión
-                                    </button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
-            
-            document.getElementById('modalCalendarioInterno').classList.remove('hidden');
+            estadoCalendario.tipoActual = tipo;
+            DB.set('estadoCalendario', estadoCalendario);
+            render();
         };
         
-        window.cerrarCalendarioInterno = function() {
-            document.getElementById('modalCalendarioInterno').classList.add('hidden');
+        window.cambiarMesCalendario = function(direccion) {
+            const estadoCalendario = DB.get('estadoCalendario') || {
+                mes: new Date().getMonth(),
+                año: new Date().getFullYear(),
+                tipoActual: 'sesiones'
+            };
+            
+            estadoCalendario.mes += direccion;
+            
+            if (estadoCalendario.mes > 11) {
+                estadoCalendario.mes = 0;
+                estadoCalendario.año++;
+            } else if (estadoCalendario.mes < 0) {
+                estadoCalendario.mes = 11;
+                estadoCalendario.año--;
+            }
+            
+            DB.set('estadoCalendario', estadoCalendario);
+            render();
+        };
+        
+        window.irAHoyCalendario = function() {
+            const hoy = new Date();
+            const estadoCalendario = {
+                mes: hoy.getMonth(),
+                año: hoy.getFullYear(),
+                tipoActual: DB.get('estadoCalendario')?.tipoActual || 'sesiones'
+            };
+            DB.set('estadoCalendario', estadoCalendario);
+            render();
+        };
+        
+        window.mostrarDetalleEvento = function(sesionId) {
+            const sesiones = DB.get('sesiones') || [];
+            const sesion = sesiones.find(s => s.id === sesionId);
+            
+            if (!sesion) {
+                alert('Sesión no encontrada');
+                return;
+            }
+            
+            const users = DB.get('users') || [];
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
+            const barcos = DB.get('barcos') || [];
+            
+            const timonel = users.find(u => u.id === sesion.timonelId);
+            const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
+            const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
+            const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
+            const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
+            const barco = barcos.find(b => b.id === sesion.barcoId);
+            
+            const contenido = document.getElementById('contenidoDetalleEvento');
+            
+            contenido.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                        <h4 class="text-2xl font-bold mb-2">${sesion.nombre || sesion.tipo}</h4>
+                        <div class="grid md:grid-cols-2 gap-3 text-sm">
+                            <p><strong>📅 Fecha:</strong> ${new Date(sesion.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            <p><strong>⏰ Horario:</strong> ${sesion.horario}</p>
+                            <p><strong>🏷️ Tipo:</strong> ${sesion.tipo}</p>
+                            ${barco ? `<p><strong>🛶 Barco:</strong> ${barco.nombre}</p>` : ''}
+                            <p><strong>👤 Representante:</strong> ${sesion.representante || '-'}</p>
+                            <p><strong>📞 Teléfono:</strong> ${sesion.telefonoRepresentante || '-'}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+                        <h5 class="text-lg font-bold mb-3">👥 Personal Asignado</h5>
+                        <div class="space-y-2 text-sm">
+                            ${timonel ? `<p><strong>👤 Timonel:</strong> ${timonel.nombre}${timonel.telefono ? ' (' + timonel.telefono + ')' : ''}</p>` : '<p class="text-gray-500">Sin timonel asignado</p>'}
+                            ${timonel2 ? `<p><strong>👤 Timonel 2:</strong> ${timonel2.nombre}${timonel2.telefono ? ' (' + timonel2.telefono + ')' : ''}</p>` : ''}
+                            ${auxiliar ? `<p><strong>🆘 Auxiliar:</strong> ${auxiliar.nombre}${auxiliar.telefono ? ' (' + auxiliar.telefono + ')' : ''}</p>` : ''}
+                            ${auxiliar2 ? `<p><strong>🆘 Auxiliar 2:</strong> ${auxiliar2.nombre}${auxiliar2.telefono ? ' (' + auxiliar2.telefono + ')' : ''}</p>` : ''}
+                            ${zodiacPersona ? `<p><strong>🚤 Zodiac:</strong> ${zodiacPersona.nombre}${zodiacPersona.telefono ? ' (' + zodiacPersona.telefono + ')' : ''}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-4">
+                        <h5 class="text-lg font-bold mb-3">👥 Participantes (${sesion.participantes.length})</h5>
+                        <div class="max-h-64 overflow-y-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-purple-100 sticky top-0">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">Nombre</th>
+                                        <th class="px-3 py-2 text-left">DNI</th>
+                                        <th class="px-3 py-2 text-left">Sabe Nadar</th>
+                                        <th class="px-3 py-2 text-left">Necesidades</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${sesion.participantes.map(p => `
+                                        <tr class="border-t">
+                                            <td class="px-3 py-2">${p.nombre || '-'}</td>
+                                            <td class="px-3 py-2">${p.dni}</td>
+                                            <td class="px-3 py-2">
+                                                <span class="px-2 py-1 ${p.sabeNadar === 'si' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} rounded text-xs font-bold">
+                                                    ${p.sabeNadar === 'si' ? '✓ Sí' : '✗ No'}
+                                                </span>
+                                            </td>
+                                            <td class="px-3 py-2">${p.necesidades || '-'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 justify-end">
+                        <button onclick="irASesion(${sesionId})" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">
+                            Ir a Gestión de Sesiones
+                        </button>
+                        <button onclick="cerrarDetalleEvento()" 
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-3 rounded-lg font-bold">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('modalDetalleEvento').classList.remove('hidden');
+        };
+        
+        window.cerrarDetalleEvento = function() {
+            document.getElementById('modalDetalleEvento').classList.add('hidden');
+        };
+        
+        window.irASesion = function(sesionId) {
+            cerrarDetalleEvento();
+            currentView = 'sesiones';
+            render();
         };
         
         window.verDetalleEvento = function(sesionId) {
