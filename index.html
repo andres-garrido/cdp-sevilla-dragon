@@ -2924,6 +2924,205 @@
             actualizarListaParticipantes();
         };
 
+        // Función para sincronizar sesión con Google Calendar
+        function sincronizarConCalendario(sesion, esEdicion) {
+            const calendarios = DB.get('calendarios') || {};
+            
+            // Verificar que hay calendarios configurados
+            if (!calendarios.sesiones && !calendarios.timoneles && !calendarios.auxiliares && !calendarios.zodiac) {
+                console.log('No hay calendarios configurados para sincronizar');
+                return;
+            }
+            
+            // Obtener información adicional
+            const users = DB.get('users') || [];
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
+            const barcos = DB.get('barcos') || [];
+            
+            const timonel = users.find(u => u.id === sesion.timonelId);
+            const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
+            const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
+            const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
+            const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
+            const barco = barcos.find(b => b.id === sesion.barcoId);
+            
+            // Convertir fecha y hora al formato de Google Calendar (YYYYMMDDTHHMMSSZ)
+            const [year, month, day] = sesion.fecha.split('-');
+            const [hour, minute] = sesion.horario.split(':');
+            
+            // Fecha inicio
+            const fechaInicio = `${year}${month}${day}T${hour}${minute}00`;
+            
+            // Fecha fin (2 horas después por defecto)
+            const fechaFinDate = new Date(sesion.fecha + 'T' + sesion.horario);
+            fechaFinDate.setHours(fechaFinDate.getHours() + 2);
+            const endYear = fechaFinDate.getFullYear();
+            const endMonth = String(fechaFinDate.getMonth() + 1).padStart(2, '0');
+            const endDay = String(fechaFinDate.getDate()).padStart(2, '0');
+            const endHour = String(fechaFinDate.getHours()).padStart(2, '0');
+            const endMinute = String(fechaFinDate.getMinutes()).padStart(2, '0');
+            const fechaFin = `${endYear}${endMonth}${endDay}T${endHour}${endMinute}00`;
+            
+            // Título del evento
+            const titulo = `${sesion.nombre || sesion.tipo} - ${sesion.tipo}`;
+            
+            // Descripción detallada del evento
+            let descripcion = `SESIÓN CDP SEVILLA-DRAGÓN\n\n`;
+            descripcion += `Tipo: ${sesion.tipo}\n`;
+            if (barco) descripcion += `Barco: ${barco.nombre}\n`;
+            if (sesion.representante) descripcion += `Representante: ${sesion.representante}\n`;
+            if (sesion.telefonoRepresentante) descripcion += `Teléfono: ${sesion.telefonoRepresentante}\n`;
+            descripcion += `\nPERSONAL:\n`;
+            if (timonel) descripcion += `• Timonel: ${timonel.nombre}${timonel.telefono ? ' (' + timonel.telefono + ')' : ''}\n`;
+            if (timonel2) descripcion += `• Timonel 2: ${timonel2.nombre}${timonel2.telefono ? ' (' + timonel2.telefono + ')' : ''}\n`;
+            if (auxiliar) descripcion += `• Auxiliar: ${auxiliar.nombre}${auxiliar.telefono ? ' (' + auxiliar.telefono + ')' : ''}\n`;
+            if (auxiliar2) descripcion += `• Auxiliar 2: ${auxiliar2.nombre}${auxiliar2.telefono ? ' (' + auxiliar2.telefono + ')' : ''}\n`;
+            if (zodiacPersona) descripcion += `• Zodiac: ${zodiacPersona.nombre}${zodiacPersona.telefono ? ' (' + zodiacPersona.telefono + ')' : ''}\n`;
+            descripcion += `\nPARTICIPANTES: ${sesion.participantes.length}`;
+            
+            // Ubicación
+            const ubicacion = 'CDP Sevilla-Dragón';
+            
+            // Crear URLs para cada calendario configurado
+            const urlsCalendarios = [];
+            
+            // Calendario de sesiones
+            if (calendarios.sesiones) {
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+                    `&text=${encodeURIComponent(titulo)}` +
+                    `&dates=${fechaInicio}/${fechaFin}` +
+                    `&details=${encodeURIComponent(descripcion)}` +
+                    `&location=${encodeURIComponent(ubicacion)}` +
+                    `&add=${encodeURIComponent(calendarios.sesiones)}`;
+                urlsCalendarios.push({ nombre: 'Sesiones', url: url });
+            }
+            
+            // Calendario de timoneles (si hay timonel asignado)
+            if (calendarios.timoneles && timonel) {
+                const descripcionTimonel = `SESIÓN ASIGNADA\n\n` +
+                    `Rol: Timonel${timonel2 ? ' Principal' : ''}\n` +
+                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                    `Tipo: ${sesion.tipo}\n` +
+                    (barco ? `Barco: ${barco.nombre}\n` : '') +
+                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                    (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                    `Participantes: ${sesion.participantes.length}`;
+                
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+                    `&text=${encodeURIComponent(titulo + ' - ' + timonel.nombre)}` +
+                    `&dates=${fechaInicio}/${fechaFin}` +
+                    `&details=${encodeURIComponent(descripcionTimonel)}` +
+                    `&location=${encodeURIComponent(ubicacion)}` +
+                    `&add=${encodeURIComponent(calendarios.timoneles)}`;
+                urlsCalendarios.push({ nombre: 'Timoneles (' + timonel.nombre + ')', url: url });
+            }
+            
+            // Calendario de timonel 2
+            if (calendarios.timoneles && timonel2) {
+                const descripcionTimonel2 = `SESIÓN ASIGNADA\n\n` +
+                    `Rol: Timonel Secundario\n` +
+                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                    `Tipo: ${sesion.tipo}\n` +
+                    (barco ? `Barco: ${barco.nombre}\n` : '') +
+                    `Timonel Principal: ${timonel.nombre}\n` +
+                    (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                    `Participantes: ${sesion.participantes.length}`;
+                
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+                    `&text=${encodeURIComponent(titulo + ' - ' + timonel2.nombre)}` +
+                    `&dates=${fechaInicio}/${fechaFin}` +
+                    `&details=${encodeURIComponent(descripcionTimonel2)}` +
+                    `&location=${encodeURIComponent(ubicacion)}` +
+                    `&add=${encodeURIComponent(calendarios.timoneles)}`;
+                urlsCalendarios.push({ nombre: 'Timoneles (' + timonel2.nombre + ')', url: url });
+            }
+            
+            // Calendario de auxiliares (si hay auxiliar asignado)
+            if (calendarios.auxiliares && auxiliar) {
+                const descripcionAuxiliar = `SESIÓN ASIGNADA\n\n` +
+                    `Rol: Auxiliar${auxiliar2 ? ' Principal' : ''}\n` +
+                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                    `Tipo: ${sesion.tipo}\n` +
+                    (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
+                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                    `Participantes: ${sesion.participantes.length}`;
+                
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+                    `&text=${encodeURIComponent(titulo + ' - ' + auxiliar.nombre)}` +
+                    `&dates=${fechaInicio}/${fechaFin}` +
+                    `&details=${encodeURIComponent(descripcionAuxiliar)}` +
+                    `&location=${encodeURIComponent(ubicacion)}` +
+                    `&add=${encodeURIComponent(calendarios.auxiliares)}`;
+                urlsCalendarios.push({ nombre: 'Auxiliares (' + auxiliar.nombre + ')', url: url });
+            }
+            
+            // Calendario de auxiliar 2
+            if (calendarios.auxiliares && auxiliar2) {
+                const descripcionAuxiliar2 = `SESIÓN ASIGNADA\n\n` +
+                    `Rol: Auxiliar Secundario\n` +
+                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                    `Tipo: ${sesion.tipo}\n` +
+                    (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
+                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                    `Auxiliar Principal: ${auxiliar.nombre}\n` +
+                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                    `Participantes: ${sesion.participantes.length}`;
+                
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+                    `&text=${encodeURIComponent(titulo + ' - ' + auxiliar2.nombre)}` +
+                    `&dates=${fechaInicio}/${fechaFin}` +
+                    `&details=${encodeURIComponent(descripcionAuxiliar2)}` +
+                    `&location=${encodeURIComponent(ubicacion)}` +
+                    `&add=${encodeURIComponent(calendarios.auxiliares)}`;
+                urlsCalendarios.push({ nombre: 'Auxiliares (' + auxiliar2.nombre + ')', url: url });
+            }
+            
+            // Calendario de zodiac (si hay zodiac asignado)
+            if (calendarios.zodiac && zodiacPersona) {
+                const descripcionZodiac = `SESIÓN ASIGNADA\n\n` +
+                    `Rol: Zodiac\n` +
+                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                    `Tipo: ${sesion.tipo}\n` +
+                    (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
+                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                    (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                    `Participantes: ${sesion.participantes.length}`;
+                
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+                    `&text=${encodeURIComponent(titulo + ' - ' + zodiacPersona.nombre)}` +
+                    `&dates=${fechaInicio}/${fechaFin}` +
+                    `&details=${encodeURIComponent(descripcionZodiac)}` +
+                    `&location=${encodeURIComponent(ubicacion)}` +
+                    `&add=${encodeURIComponent(calendarios.zodiac)}`;
+                urlsCalendarios.push({ nombre: 'Zodiac (' + zodiacPersona.nombre + ')', url: url });
+            }
+            
+            // Abrir URLs en nuevas pestañas con pequeño retraso entre ellas
+            if (urlsCalendarios.length > 0) {
+                const accion = esEdicion ? 'actualizado' : 'creado';
+                const mensaje = `✅ Evento ${accion}. Se abrirán ${urlsCalendarios.length} pestaña(s) para añadir/actualizar en Google Calendar:\n\n` +
+                    urlsCalendarios.map(c => `• ${c.nombre}`).join('\n') +
+                    `\n\nNOTA: Debes guardar el evento en cada calendario manualmente.`;
+                
+                alert(mensaje);
+                
+                // Abrir cada URL con un pequeño retraso para evitar bloqueos del navegador
+                urlsCalendarios.forEach((cal, index) => {
+                    setTimeout(() => {
+                        window.open(cal.url, '_blank');
+                    }, index * 500); // 500ms de retraso entre cada apertura
+                });
+            }
+        }
+
         window.guardarSesion = function(e) {
             e.preventDefault();
             
@@ -3163,6 +3362,12 @@
             
             DB.set('sesiones', data);
             
+            // SINCRONIZAR CON GOOGLE CALENDAR
+            const sesionGuardadaParaCalendar = data.find(s => s.id === sesionGuardadaId);
+            if (sesionGuardadaParaCalendar) {
+                sincronizarConCalendario(sesionGuardadaParaCalendar, editingSesionId ? true : false);
+            }
+            
             // Preparar TODOS los mensajes de WhatsApp (asignados + desasignados)
             const todosLosMensajes = [];
             
@@ -3314,9 +3519,22 @@
                 return;
             }
             
-            if (confirm('¿Eliminar esta sesión?')) {
+            const calendarios = DB.get('calendarios') || {};
+            const hayCalendariosConfigurados = calendarios.sesiones || calendarios.timoneles || calendarios.auxiliares || calendarios.zodiac;
+            
+            let mensaje = '¿Eliminar esta sesión?';
+            if (hayCalendariosConfigurados) {
+                mensaje += '\n\n⚠️ IMPORTANTE: También deberás eliminar manualmente el evento de Google Calendar.';
+            }
+            
+            if (confirm(mensaje)) {
                 const data = DB.get('sesiones') || [];
                 DB.set('sesiones', data.filter(s => s.id !== id));
+                
+                if (hayCalendariosConfigurados) {
+                    alert('✅ Sesión eliminada.\n\n📅 Recuerda eliminar el evento de los calendarios de Google Calendar manualmente.');
+                }
+                
                 render();
             }
         };
