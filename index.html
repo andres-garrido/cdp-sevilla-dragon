@@ -1509,7 +1509,7 @@
                     </div>
                     
                     <!-- Días del mes -->
-                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(70px, auto);">
+                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(60px, auto);">
             `;
             
             // Agregar días vacíos al inicio
@@ -1526,23 +1526,28 @@
                 // Buscar eventos de este día
                 const eventosDelDia = eventosFiltrados.filter(e => e.fecha === fechaActual);
                 
+                // Limitar a 3 eventos visibles
+                const eventosVisibles = eventosDelDia.slice(0, 3);
+                const eventosRestantes = eventosDelDia.length - 3;
+                
                 html += `
                     <div class="border-r border-b p-0.5 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
                         <div class="font-bold text-right mb-0.5 ${esHoy ? 'text-blue-600' : 'text-gray-700'}" style="font-size: 8px;">
                             ${dia}
                         </div>
                         <div class="space-y-0.5">
-                            ${eventosDelDia.slice(0, 3).map(evento => `
+                            ${eventosVisibles.map(evento => `
                                 <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
                                     class="${colores[tipoActual]} text-white p-1 rounded cursor-pointer hover:opacity-80 truncate"
-                                    title="${evento.titulo}"
-                                    style="font-size: 10px; line-height: 1.2;">
-                                    ${evento.horario} ${evento.titulo.length > 12 ? evento.titulo.substring(0, 12) + '...' : evento.titulo}
+                                    title="${evento.horario} - ${evento.titulo}"
+                                    style="font-size: 11px; line-height: 1.2; font-weight: 500;">
+                                    ${evento.horario}<br>${evento.titulo}
                                 </div>
                             `).join('')}
-                            ${eventosDelDia.length > 3 ? `
-                                <div class="text-gray-600 text-center font-bold" style="font-size: 9px;">
-                                    +${eventosDelDia.length - 3} más
+                            ${eventosRestantes > 0 ? `
+                                <div class="text-gray-600 font-semibold p-1 text-center" 
+                                    style="font-size: 10px;">
+                                    +${eventosRestantes} más
                                 </div>
                             ` : ''}
                         </div>
