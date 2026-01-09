@@ -1377,33 +1377,39 @@
             const eventosZodiac = eventosCalendario.filter(e => e.tipo === 'zodiac');
 
             return `
-                <div class="container mx-auto px-4 py-4">
-                    <!-- Selector de tipo de calendario - SIEMPRE VISIBLE -->
-                    <div class="bg-white rounded-xl shadow-lg p-4 mb-4">
-                        <h3 class="text-xl font-bold mb-3">📆 Seleccionar Calendario</h3>
-                        <div class="grid grid-cols-4 gap-3">
-                            <button onclick="seleccionarCalendario('sesiones')" 
-                                class="px-4 py-3 ${estadoCalendario.tipoActual === 'sesiones' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'} hover:bg-blue-600 hover:text-white rounded-lg font-bold transition text-sm">
-                                📅 Sesiones (${eventosSesiones.length})
-                            </button>
-                            <button onclick="seleccionarCalendario('timoneles')" 
-                                class="px-4 py-3 ${estadoCalendario.tipoActual === 'timoneles' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'} hover:bg-green-600 hover:text-white rounded-lg font-bold transition text-sm">
-                                👤 Timoneles (${eventosTimoneles.length})
-                            </button>
-                            <button onclick="seleccionarCalendario('auxiliares')" 
-                                class="px-4 py-3 ${estadoCalendario.tipoActual === 'auxiliares' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700'} hover:bg-orange-600 hover:text-white rounded-lg font-bold transition text-sm">
-                                🆘 Auxiliares (${eventosAuxiliares.length})
-                            </button>
-                            <button onclick="seleccionarCalendario('zodiac')" 
-                                class="px-4 py-3 ${estadoCalendario.tipoActual === 'zodiac' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'} hover:bg-purple-600 hover:text-white rounded-lg font-bold transition text-sm">
-                                🚤 Zodiac (${eventosZodiac.length})
-                            </button>
+                <div class="container mx-auto px-2 py-2">
+                    <!-- Selector de calendario en una línea -->
+                    <div class="bg-white rounded-lg shadow-lg p-2 mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold whitespace-nowrap">📆 Seleccionar Calendario:</span>
+                            <div class="flex gap-1 flex-1">
+                                <button onclick="seleccionarCalendario('sesiones')" 
+                                    class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'sesiones' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'} hover:bg-blue-600 hover:text-white rounded font-bold transition"
+                                    style="font-size: 10px;">
+                                    📅 Sesiones (${eventosSesiones.length})
+                                </button>
+                                <button onclick="seleccionarCalendario('timoneles')" 
+                                    class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'timoneles' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'} hover:bg-green-600 hover:text-white rounded font-bold transition"
+                                    style="font-size: 10px;">
+                                    👤 Timoneles (${eventosTimoneles.length})
+                                </button>
+                                <button onclick="seleccionarCalendario('auxiliares')" 
+                                    class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'auxiliares' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700'} hover:bg-orange-600 hover:text-white rounded font-bold transition"
+                                    style="font-size: 10px;">
+                                    🆘 Auxiliares (${eventosAuxiliares.length})
+                                </button>
+                                <button onclick="seleccionarCalendario('zodiac')" 
+                                    class="flex-1 px-2 py-1 ${estadoCalendario.tipoActual === 'zodiac' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'} hover:bg-purple-600 hover:text-white rounded font-bold transition"
+                                    style="font-size: 10px;">
+                                    🚤 Zodiac (${eventosZodiac.length})
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
                     ${estadoCalendario.tipoActual ? `
                         <!-- Vista de calendario mensual -->
-                        <div class="bg-white rounded-xl shadow-lg p-2">
+                        <div class="bg-white rounded-lg shadow-lg p-1">
                             ${generarVistaCalendarioMensual(estadoCalendario)}
                         </div>
                     ` : `
@@ -1467,21 +1473,24 @@
             
             // Header con navegación
             let html = `
-                <div class="mb-2">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-lg font-bold">${titulos[tipoActual]}</h3>
-                        <div class="flex gap-2 items-center">
+                <div class="mb-1">
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 class="font-bold" style="font-size: 11px;">${titulos[tipoActual]}</h3>
+                        <div class="flex gap-1 items-center">
                             <button onclick="cambiarMesCalendario(-1)" 
-                                class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold">
+                                class="px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 rounded font-bold"
+                                style="font-size: 10px;">
                                 ◀
                             </button>
-                            <span class="text-sm font-bold px-2">${nombresMeses[mes]} ${año}</span>
+                            <span class="font-bold px-1" style="font-size: 10px;">${nombresMeses[mes]} ${año}</span>
                             <button onclick="cambiarMesCalendario(1)" 
-                                class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold">
+                                class="px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 rounded font-bold"
+                                style="font-size: 10px;">
                                 ▶
                             </button>
                             <button onclick="irAHoyCalendario()" 
-                                class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold">
+                                class="px-1.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold"
+                                style="font-size: 10px;">
                                 Hoy
                             </button>
                         </div>
@@ -1493,14 +1502,14 @@
                     <!-- Header de días de la semana -->
                     <div class="grid grid-cols-7 bg-gray-100 border-b">
                         ${nombresDias.map(dia => `
-                            <div class="p-1 text-center font-bold text-gray-700 border-r last:border-r-0 text-xs">
+                            <div class="p-0.5 text-center font-bold text-gray-700 border-r last:border-r-0" style="font-size: 8px;">
                                 ${dia}
                             </div>
                         `).join('')}
                     </div>
                     
                     <!-- Días del mes -->
-                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(70px, auto);">
+                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(60px, auto);">
             `;
             
             // Agregar días vacíos al inicio
@@ -1519,7 +1528,7 @@
                 
                 html += `
                     <div class="border-r border-b p-0.5 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
-                        <div class="font-bold text-right mb-0.5 ${esHoy ? 'text-blue-600' : 'text-gray-700'} text-xs">
+                        <div class="font-bold text-right mb-0.5 ${esHoy ? 'text-blue-600' : 'text-gray-700'}" style="font-size: 8px;">
                             ${dia}
                         </div>
                         <div class="space-y-0.5">
@@ -1527,8 +1536,8 @@
                                 <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
                                     class="${colores[tipoActual]} text-white p-0.5 rounded cursor-pointer hover:opacity-80 truncate"
                                     title="${evento.titulo}"
-                                    style="font-size: 9px; line-height: 1.2;">
-                                    ${evento.horario} ${evento.titulo.length > 12 ? evento.titulo.substring(0, 12) + '...' : evento.titulo}
+                                    style="font-size: 8px; line-height: 1.1;">
+                                    ${evento.horario} ${evento.titulo.length > 10 ? evento.titulo.substring(0, 10) + '...' : evento.titulo}
                                 </div>
                             `).join('')}
                         </div>
@@ -3062,7 +3071,7 @@
                     id: Date.now() + Math.random() + 1,
                     sesionId: sesion.id,
                     tipo: 'timoneles',
-                    titulo: `${sesion.nombre || sesion.tipo} - ${timonel.nombre}`,
+                    titulo: timonel.nombre,
                     fecha: sesion.fecha,
                     horario: sesion.horario,
                     descripcion: `Rol: Timonel${timonel2 ? ' Principal' : ''}\n` +
@@ -3086,7 +3095,7 @@
                     id: Date.now() + Math.random() + 2,
                     sesionId: sesion.id,
                     tipo: 'timoneles',
-                    titulo: `${sesion.nombre || sesion.tipo} - ${timonel2.nombre}`,
+                    titulo: timonel2.nombre,
                     fecha: sesion.fecha,
                     horario: sesion.horario,
                     descripcion: `Rol: Timonel Secundario\n` +
@@ -3110,7 +3119,7 @@
                     id: Date.now() + Math.random() + 3,
                     sesionId: sesion.id,
                     tipo: 'auxiliares',
-                    titulo: `${sesion.nombre || sesion.tipo} - ${auxiliar.nombre}`,
+                    titulo: auxiliar.nombre,
                     fecha: sesion.fecha,
                     horario: sesion.horario,
                     descripcion: `Rol: Auxiliar${auxiliar2 ? ' Principal' : ''}\n` +
@@ -3133,7 +3142,7 @@
                     id: Date.now() + Math.random() + 4,
                     sesionId: sesion.id,
                     tipo: 'auxiliares',
-                    titulo: `${sesion.nombre || sesion.tipo} - ${auxiliar2.nombre}`,
+                    titulo: auxiliar2.nombre,
                     fecha: sesion.fecha,
                     horario: sesion.horario,
                     descripcion: `Rol: Auxiliar Secundario\n` +
@@ -3156,7 +3165,7 @@
                     id: Date.now() + Math.random() + 5,
                     sesionId: sesion.id,
                     tipo: 'zodiac',
-                    titulo: `${sesion.nombre || sesion.tipo} - ${zodiacPersona.nombre}`,
+                    titulo: zodiacPersona.nombre,
                     fecha: sesion.fecha,
                     horario: sesion.horario,
                     descripcion: `Rol: Zodiac\n` +
