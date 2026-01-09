@@ -1429,6 +1429,17 @@
                             <div id="contenidoDetalleEvento"></div>
                         </div>
                     </div>
+                    
+                    <!-- Modal para todos los eventos del día -->
+                    <div id="modalEventosDia" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onclick="cerrarEventosDia()">
+                        <div class="bg-white rounded-2xl p-8 max-w-3xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-3xl font-bold" id="tituloEventosDia">Eventos del día</h3>
+                                <button onclick="cerrarEventosDia()" class="text-4xl hover:text-red-600">&times;</button>
+                            </div>
+                            <div id="contenidoEventosDia"></div>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -1545,7 +1556,8 @@
                                 </div>
                             `).join('')}
                             ${eventosRestantes > 0 ? `
-                                <div class="text-gray-600 font-semibold p-1 text-center" 
+                                <div onclick="mostrarTodosEventosDia('${fechaActual}', '${tipoActual}')" 
+                                    class="text-blue-600 font-semibold p-1 text-center cursor-pointer hover:text-blue-800 hover:underline" 
                                     style="font-size: 10px;">
                                     +${eventosRestantes} más
                                 </div>
@@ -4200,6 +4212,62 @@
         
         window.cerrarDetalleEvento = function() {
             document.getElementById('modalDetalleEvento').classList.add('hidden');
+        };
+        
+        window.mostrarTodosEventosDia = function(fecha, tipoCalendario) {
+            const eventosCalendario = DB.get('eventosCalendario') || [];
+            const eventosFiltrados = eventosCalendario.filter(e => e.tipo === tipoCalendario && e.fecha === fecha);
+            
+            // Formato de fecha legible
+            const [year, month, day] = fecha.split('-');
+            const fechaObj = new Date(year, month - 1, day);
+            const fechaFormateada = fechaObj.toLocaleDateString('es-ES', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            
+            // Títulos según tipo
+            const titulosCalendario = {
+                'sesiones': '📅 Sesiones',
+                'timoneles': '👤 Timoneles',
+                'auxiliares': '🆘 Auxiliares',
+                'zodiac': '🚤 Zodiac'
+            };
+            
+            const colores = {
+                'sesiones': 'bg-blue-500',
+                'timoneles': 'bg-green-500',
+                'auxiliares': 'bg-orange-500',
+                'zodiac': 'bg-purple-500'
+            };
+            
+            document.getElementById('tituloEventosDia').textContent = 
+                `${titulosCalendario[tipoCalendario]} - ${fechaFormateada}`;
+            
+            const contenido = `
+                <div class="space-y-3">
+                    ${eventosFiltrados.map(evento => `
+                        <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
+                            class="${colores[tipoCalendario]} text-white p-4 rounded-lg cursor-pointer hover:opacity-80 transition">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-bold text-lg mb-1">${evento.horario} - ${evento.titulo}</div>
+                                    <div class="text-sm opacity-90 whitespace-pre-line">${evento.descripcion || ''}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            document.getElementById('contenidoEventosDia').innerHTML = contenido;
+            document.getElementById('modalEventosDia').classList.remove('hidden');
+        };
+        
+        window.cerrarEventosDia = function() {
+            document.getElementById('modalEventosDia').classList.add('hidden');
         };
         
         window.irASesion = function(sesionId) {
