@@ -1429,6 +1429,17 @@
                             <div id="contenidoDetalleEvento"></div>
                         </div>
                     </div>
+                    
+                    <!-- Modal para todos los eventos del día -->
+                    <div id="modalEventosDia" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onclick="cerrarEventosDia()">
+                        <div class="bg-white rounded-2xl p-8 max-w-3xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-3xl font-bold" id="tituloEventosDia">Eventos del día</h3>
+                                <button onclick="cerrarEventosDia()" class="text-4xl hover:text-red-600">&times;</button>
+                            </div>
+                            <div id="contenidoEventosDia"></div>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -1479,18 +1490,18 @@
                         <div class="flex gap-1 items-center">
                             <button onclick="cambiarMesCalendario(-1)" 
                                 class="px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 rounded font-bold"
-                                style="font-size: 10px;">
+                                style="font-size: 11px;">
                                 ◀
                             </button>
-                            <span class="font-bold px-1" style="font-size: 10px;">${nombresMeses[mes]} ${año}</span>
+                            <span class="font-bold px-1" style="font-size: 11px;">${nombresMeses[mes]} ${año}</span>
                             <button onclick="cambiarMesCalendario(1)" 
                                 class="px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 rounded font-bold"
-                                style="font-size: 10px;">
+                                style="font-size: 11px;">
                                 ▶
                             </button>
                             <button onclick="irAHoyCalendario()" 
                                 class="px-1.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold"
-                                style="font-size: 10px;">
+                                style="font-size: 11px;">
                                 Hoy
                             </button>
                         </div>
@@ -1502,7 +1513,7 @@
                     <!-- Header de días de la semana -->
                     <div class="grid grid-cols-7 bg-gray-100 border-b">
                         ${nombresDias.map(dia => `
-                            <div class="p-0.5 text-center font-bold text-gray-700 border-r last:border-r-0" style="font-size: 8px;">
+                            <div class="p-1 text-center font-bold text-gray-700 border-r last:border-r-0" style="font-size: 11px;">
                                 ${dia}
                             </div>
                         `).join('')}
@@ -1526,23 +1537,29 @@
                 // Buscar eventos de este día
                 const eventosDelDia = eventosFiltrados.filter(e => e.fecha === fechaActual);
                 
+                // Limitar a 3 eventos visibles
+                const eventosVisibles = eventosDelDia.slice(0, 3);
+                const eventosRestantes = eventosDelDia.length - 3;
+                
                 html += `
                     <div class="border-r border-b p-0.5 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
-                        <div class="font-bold text-right mb-0.5 ${esHoy ? 'text-blue-600' : 'text-gray-700'}" style="font-size: 8px;">
+                        <div class="font-bold text-right mb-0.5 ${esHoy ? 'text-blue-600' : 'text-gray-700'}" style="font-size: 11px;">
                             ${dia}
                         </div>
                         <div class="space-y-0.5">
-                            ${eventosDelDia.slice(0, 3).map(evento => `
-                                <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
-                                    class="${colores[tipoActual]} text-white p-1 rounded cursor-pointer hover:opacity-80 truncate"
-                                    title="${evento.titulo}"
-                                    style="font-size: 10px; line-height: 1.2;">
-                                    ${evento.horario} ${evento.titulo.length > 12 ? evento.titulo.substring(0, 12) + '...' : evento.titulo}
+                            ${eventosVisibles.map(evento => `
+                                <div onclick="event.stopPropagation(); mostrarDetalleEvento(${evento.sesionId})" 
+                                    class="${colores[tipoActual]} text-white p-1 rounded cursor-pointer hover:opacity-80"
+                                    title="${evento.horario} - ${evento.titulo}"
+                                    style="font-size: 11px; line-height: 1.2; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
+                                    ${evento.horario}<br>${evento.titulo}
                                 </div>
                             `).join('')}
-                            ${eventosDelDia.length > 3 ? `
-                                <div class="text-gray-600 text-center font-bold" style="font-size: 9px;">
-                                    +${eventosDelDia.length - 3} más
+                            ${eventosRestantes > 0 ? `
+                                <div onclick="event.stopPropagation(); mostrarTodosEventosDia('${fechaActual}', '${tipoActual}')" 
+                                    class="bg-blue-100 text-blue-700 font-bold p-1 rounded text-center cursor-pointer hover:bg-blue-200" 
+                                    style="font-size: 11px;">
+                                    +${eventosRestantes} más
                                 </div>
                             ` : ''}
                         </div>
@@ -4195,6 +4212,62 @@
         
         window.cerrarDetalleEvento = function() {
             document.getElementById('modalDetalleEvento').classList.add('hidden');
+        };
+        
+        window.mostrarTodosEventosDia = function(fecha, tipoCalendario) {
+            const eventosCalendario = DB.get('eventosCalendario') || [];
+            const eventosFiltrados = eventosCalendario.filter(e => e.tipo === tipoCalendario && e.fecha === fecha);
+            
+            // Formato de fecha legible
+            const [year, month, day] = fecha.split('-');
+            const fechaObj = new Date(year, month - 1, day);
+            const fechaFormateada = fechaObj.toLocaleDateString('es-ES', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            
+            // Títulos según tipo
+            const titulosCalendario = {
+                'sesiones': '📅 Sesiones',
+                'timoneles': '👤 Timoneles',
+                'auxiliares': '🆘 Auxiliares',
+                'zodiac': '🚤 Zodiac'
+            };
+            
+            const colores = {
+                'sesiones': 'bg-blue-500',
+                'timoneles': 'bg-green-500',
+                'auxiliares': 'bg-orange-500',
+                'zodiac': 'bg-purple-500'
+            };
+            
+            document.getElementById('tituloEventosDia').textContent = 
+                `${titulosCalendario[tipoCalendario]} - ${fechaFormateada}`;
+            
+            const contenido = `
+                <div class="space-y-3">
+                    ${eventosFiltrados.map(evento => `
+                        <div onclick="cerrarEventosDia(); mostrarDetalleEvento(${evento.sesionId})" 
+                            class="${colores[tipoCalendario]} text-white p-4 rounded-lg cursor-pointer hover:opacity-80 transition">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-bold text-lg mb-1">${evento.horario} - ${evento.titulo}</div>
+                                    <div class="text-sm opacity-90 whitespace-pre-line">${evento.descripcion || ''}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            document.getElementById('contenidoEventosDia').innerHTML = contenido;
+            document.getElementById('modalEventosDia').classList.remove('hidden');
+        };
+        
+        window.cerrarEventosDia = function() {
+            document.getElementById('modalEventosDia').classList.add('hidden');
         };
         
         window.irASesion = function(sesionId) {
