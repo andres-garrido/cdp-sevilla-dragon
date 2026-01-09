@@ -1367,7 +1367,8 @@
             const estadoCalendario = DB.get('estadoCalendario') || {
                 mes: new Date().getMonth(),
                 año: new Date().getFullYear(),
-                tipoActual: 'sesiones'
+                tipoActual: null,
+                modoVista: false
             };
             
             // Agrupar eventos por tipo
@@ -1376,35 +1377,43 @@
             const eventosAuxiliares = eventosCalendario.filter(e => e.tipo === 'auxiliares');
             const eventosZodiac = eventosCalendario.filter(e => e.tipo === 'zodiac');
 
-            return `
-                <div class="container mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-6">Calendarios</h2>
-                    
-                    <!-- Selector de tipo de calendario -->
-                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                        <h3 class="text-2xl font-bold mb-4">📆 Seleccionar Calendario</h3>
-                        <div class="grid grid-cols-4 gap-3">
-                            <button onclick="seleccionarCalendario('sesiones')" 
-                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'sesiones' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'} hover:bg-blue-600 hover:text-white rounded-lg font-bold transition">
-                                📅 Sesiones (${eventosSesiones.length})
-                            </button>
-                            <button onclick="seleccionarCalendario('timoneles')" 
-                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'timoneles' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'} hover:bg-green-600 hover:text-white rounded-lg font-bold transition">
-                                👤 Timoneles (${eventosTimoneles.length})
-                            </button>
-                            <button onclick="seleccionarCalendario('auxiliares')" 
-                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'auxiliares' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700'} hover:bg-orange-600 hover:text-white rounded-lg font-bold transition">
-                                🆘 Auxiliares (${eventosAuxiliares.length})
-                            </button>
-                            <button onclick="seleccionarCalendario('zodiac')" 
-                                class="px-6 py-4 ${estadoCalendario.tipoActual === 'zodiac' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'} hover:bg-purple-600 hover:text-white rounded-lg font-bold transition">
-                                🚤 Zodiac (${eventosZodiac.length})
-                            </button>
+            // Si no está en modo vista, mostrar solo selector
+            if (!estadoCalendario.modoVista) {
+                return `
+                    <div class="container mx-auto px-4 py-8">
+                        <h2 class="text-4xl font-bold mb-6">Calendarios</h2>
+                        
+                        <!-- Selector de tipo de calendario -->
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <h3 class="text-2xl font-bold mb-4">📆 Seleccionar Calendario</h3>
+                            <div class="grid grid-cols-4 gap-3">
+                                <button onclick="seleccionarCalendario('sesiones')" 
+                                    class="px-6 py-4 bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg font-bold transition">
+                                    📅 Sesiones (${eventosSesiones.length})
+                                </button>
+                                <button onclick="seleccionarCalendario('timoneles')" 
+                                    class="px-6 py-4 bg-green-100 text-green-700 hover:bg-green-600 hover:text-white rounded-lg font-bold transition">
+                                    👤 Timoneles (${eventosTimoneles.length})
+                                </button>
+                                <button onclick="seleccionarCalendario('auxiliares')" 
+                                    class="px-6 py-4 bg-orange-100 text-orange-700 hover:bg-orange-600 hover:text-white rounded-lg font-bold transition">
+                                    🆘 Auxiliares (${eventosAuxiliares.length})
+                                </button>
+                                <button onclick="seleccionarCalendario('zodiac')" 
+                                    class="px-6 py-4 bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white rounded-lg font-bold transition">
+                                    🚤 Zodiac (${eventosZodiac.length})
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    
+                `;
+            }
+
+            // Si está en modo vista, mostrar solo calendario
+            return `
+                <div class="container mx-auto px-2 py-4">
                     <!-- Vista de calendario mensual -->
-                    <div id="vistaCalendarioMensual" class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="bg-white rounded-xl shadow-lg p-3">
                         ${generarVistaCalendarioMensual(estadoCalendario)}
                     </div>
                     
@@ -1462,21 +1471,27 @@
             
             // Header con navegación
             let html = `
-                <div class="mb-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-3xl font-bold">${titulos[tipoActual]}</h3>
-                        <div class="flex gap-3 items-center">
-                            <button onclick="cambiarMesCalendario(-1)" 
-                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">
-                                ◀ Anterior
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex gap-2 items-center">
+                            <button onclick="volverSeleccionCalendario()" 
+                                class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded font-bold text-sm">
+                                ← Volver
                             </button>
-                            <span class="text-xl font-bold px-4">${nombresMeses[mes]} ${año}</span>
+                            <h3 class="text-2xl font-bold">${titulos[tipoActual]}</h3>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <button onclick="cambiarMesCalendario(-1)" 
+                                class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded font-bold text-sm">
+                                ◀
+                            </button>
+                            <span class="text-lg font-bold px-3">${nombresMeses[mes]} ${año}</span>
                             <button onclick="cambiarMesCalendario(1)" 
-                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">
-                                Siguiente ▶
+                                class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded font-bold text-sm">
+                                ▶
                             </button>
                             <button onclick="irAHoyCalendario()" 
-                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold">
+                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-sm">
                                 Hoy
                             </button>
                         </div>
@@ -1488,14 +1503,14 @@
                     <!-- Header de días de la semana -->
                     <div class="grid grid-cols-7 bg-gray-100 border-b">
                         ${nombresDias.map(dia => `
-                            <div class="p-3 text-center font-bold text-gray-700 border-r last:border-r-0">
+                            <div class="p-2 text-center font-bold text-gray-700 border-r last:border-r-0 text-sm">
                                 ${dia}
                             </div>
                         `).join('')}
                     </div>
                     
                     <!-- Días del mes -->
-                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(120px, auto);">
+                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(80px, auto);">
             `;
             
             // Agregar días vacíos al inicio
@@ -1513,16 +1528,16 @@
                 const eventosDelDia = eventosFiltrados.filter(e => e.fecha === fechaActual);
                 
                 html += `
-                    <div class="border-r border-b p-2 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
-                        <div class="font-bold text-right mb-2 ${esHoy ? 'text-blue-600 text-lg' : 'text-gray-700'}">
+                    <div class="border-r border-b p-1 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
+                        <div class="font-bold text-right mb-1 ${esHoy ? 'text-blue-600 text-base' : 'text-gray-700 text-sm'}">
                             ${dia}
                         </div>
-                        <div class="space-y-1">
+                        <div class="space-y-0.5">
                             ${eventosDelDia.map(evento => `
                                 <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
-                                    class="${colores[tipoActual]} text-white text-xs p-1 rounded cursor-pointer hover:opacity-80 truncate"
+                                    class="${colores[tipoActual]} text-white text-xs p-0.5 rounded cursor-pointer hover:opacity-80 truncate"
                                     title="${evento.titulo}">
-                                    ${evento.horario} ${evento.titulo.length > 20 ? evento.titulo.substring(0, 20) + '...' : evento.titulo}
+                                    ${evento.horario} ${evento.titulo.length > 15 ? evento.titulo.substring(0, 15) + '...' : evento.titulo}
                                 </div>
                             `).join('')}
                         </div>
@@ -4043,6 +4058,17 @@
                 año: new Date().getFullYear()
             };
             estadoCalendario.tipoActual = tipo;
+            estadoCalendario.modoVista = true;
+            DB.set('estadoCalendario', estadoCalendario);
+            render();
+        };
+        
+        window.volverSeleccionCalendario = function() {
+            const estadoCalendario = DB.get('estadoCalendario') || {
+                mes: new Date().getMonth(),
+                año: new Date().getFullYear()
+            };
+            estadoCalendario.modoVista = false;
             DB.set('estadoCalendario', estadoCalendario);
             render();
         };
