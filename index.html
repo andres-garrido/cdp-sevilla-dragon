@@ -1597,9 +1597,12 @@
                             ${eventosVisibles.map(evento => `
                                 <div onclick="event.stopPropagation(); mostrarDetalleEvento(${evento.sesionId})" 
                                     class="${colores[tipoActual]} text-white p-1 rounded cursor-pointer hover:opacity-80"
-                                    title="${evento.horario} - ${evento.titulo}"
+                                    title="${evento.descripcion || evento.titulo}"
                                     style="font-size: 11px; line-height: 1.2; font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
-                                    ${evento.horario}<br>${evento.titulo}
+                                    ${tipoActual === 'sesiones' 
+                                        ? `${evento.horario}<br>${evento.titulo}`
+                                        : `${evento.horario}<br>${evento.personal || evento.titulo}`
+                                    }
                                 </div>
                             `).join('')}
                             ${eventosRestantes > 0 ? `
@@ -3148,8 +3151,11 @@
             const zodiac = DB.get('zodiac') || [];
             const barcos = DB.get('barcos') || [];
             
-            const timonel = users.find(u => u.id === sesion.timonelId);
+            // Obtener TODOS los timoneles (tanto timonelIds como timonel2Id)
+            const timonelesIds = sesion.timonelIds || (sesion.timonelId ? [sesion.timonelId] : []);
+            const timoneles = timonelesIds.map(id => users.find(u => u.id === id)).filter(Boolean);
             const timonel2 = sesion.timonel2Id ? users.find(u => u.id === sesion.timonel2Id) : null;
+            
             const auxiliar = auxiliares.find(a => a.id === sesion.auxiliarId);
             const auxiliar2 = sesion.auxiliar2Id ? auxiliares.find(a => a.id === sesion.auxiliar2Id) : null;
             const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
@@ -3158,20 +3164,24 @@
             // Recargar eventos actualizados
             const eventosActualizados = DB.get('eventosCalendario') || [];
             
+            // Construir lista de todo el personal para descripción
+            const todosTimoneles = [...timoneles, timonel2].filter(Boolean);
+            const nombresTimoneles = todosTimoneles.map(t => t.nombre).join(', ') || 'Sin asignar';
+            
             // 1. EVENTO EN CALENDARIO DE SESIONES (siempre se crea)
             const eventoSesion = {
                 id: Date.now() + Math.random(),
                 sesionId: sesion.id,
                 tipo: 'sesiones',
-                titulo: `${sesion.nombre || sesion.tipo} - ${sesion.tipo}`,
+                titulo: `${sesion.nombre || sesion.tipo}`,
                 fecha: sesion.fecha,
                 horario: sesion.horario,
-                descripcion: `Tipo: ${sesion.tipo}\n` +
+                descripcion: `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                    `Tipo: ${sesion.tipo}\n` +
                     (barco ? `Barco: ${barco.nombre}\n` : '') +
                     `Representante: ${sesion.representante || '-'}\n` +
                     `Teléfono: ${sesion.telefonoRepresentante || '-'}\n` +
-                    `Timonel: ${timonel ? timonel.nombre : 'Sin asignar'}\n` +
-                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                    `Timoneles: ${nombresTimoneles}\n` +
                     (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                     (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                     (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
@@ -3180,44 +3190,68 @@
             };
             eventosActualizados.push(eventoSesion);
             
-            // 2. EVENTO EN CALENDARIO DE TIMONELES (solo si hay timonel asignado)
-            if (timonel) {
-                const eventoTimonel = {
+            // 2. EVENTOS EN CALENDARIO DE TIMONELES - Crear un evento por cada timonel asignado
+            if (timoneles.length > 0) {
+                timoneles.forEach((timonel, index) => {
+                    const eventoTimonel = {
+                        id: Date.now() + Math.random() + index + 1,
+                        sesionId: sesion.id,
+                        tipo: 'timoneles',
+                        titulo: timonel.nombre, // Solo el nombre para la cuadrícula
+                        fecha: sesion.fecha,
+                        horario: sesion.horario,
+                        descripcion: `Rol: Timonel ${timoneles.length > 1 ? (index + 1) : ''}\n` +
+                            `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                            `Tipo: ${sesion.tipo}\n` +
+                            (barco ? `Barco: ${barco.nombre}\n` : '') +
+                            (timoneles.length > 1 ? `Otros timoneles: ${timoneles.filter((t, i) => i !== index).map(t => t.nombre).join(', ')}\n` : '') +
+                            (timonel2 ? `Timonel adicional: ${timonel2.nombre}\n` : '') +
+                            (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                            (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                            (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                            `Participantes: ${sesion.participantes.length}`,
+                        personal: timonel.nombre,
+                        color: '#10b981' // verde
+                    };
+                    eventosActualizados.push(eventoTimonel);
+                });
+            } else {
+                // Si no hay timonel asignado, crear evento indicándolo
+                const eventoTimonelSinAsignar = {
                     id: Date.now() + Math.random() + 1,
                     sesionId: sesion.id,
                     tipo: 'timoneles',
-                    titulo: timonel.nombre,
+                    titulo: 'Timonel sin asignar',
                     fecha: sesion.fecha,
                     horario: sesion.horario,
-                    descripcion: `Rol: Timonel${timonel2 ? ' Principal' : ''}\n` +
+                    descripcion: `Rol: Timonel sin asignar\n` +
                         `Sesión: ${sesion.nombre || sesion.tipo}\n` +
                         `Tipo: ${sesion.tipo}\n` +
                         (barco ? `Barco: ${barco.nombre}\n` : '') +
-                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
                         (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                         (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                         (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
                         `Participantes: ${sesion.participantes.length}`,
-                    personal: timonel.nombre,
+                    personal: 'Sin asignar',
                     color: '#10b981' // verde
                 };
-                eventosActualizados.push(eventoTimonel);
+                eventosActualizados.push(eventoTimonelSinAsignar);
             }
             
-            // 3. EVENTO PARA TIMONEL 2 (si existe)
-            if (timonel2) {
+            // 3. EVENTO PARA TIMONEL 2 ADICIONAL (si existe y no está en timonelIds)
+            if (timonel2 && !timonelesIds.includes(sesion.timonel2Id)) {
                 const eventoTimonel2 = {
-                    id: Date.now() + Math.random() + 2,
+                    id: Date.now() + Math.random() + 100,
                     sesionId: sesion.id,
                     tipo: 'timoneles',
                     titulo: timonel2.nombre,
                     fecha: sesion.fecha,
                     horario: sesion.horario,
-                    descripcion: `Rol: Timonel Secundario\n` +
+                    descripcion: `Rol: Timonel Adicional\n` +
                         `Sesión: ${sesion.nombre || sesion.tipo}\n` +
                         `Tipo: ${sesion.tipo}\n` +
                         (barco ? `Barco: ${barco.nombre}\n` : '') +
-                        `Timonel Principal: ${timonel.nombre}\n` +
+                        `Otros timoneles: ${nombresTimoneles}\n` +
                         (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                         (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                         (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
@@ -3231,7 +3265,7 @@
             // 4. EVENTO EN CALENDARIO DE AUXILIARES (solo si hay auxiliar asignado)
             if (auxiliar) {
                 const eventoAuxiliar = {
-                    id: Date.now() + Math.random() + 3,
+                    id: Date.now() + Math.random() + 200,
                     sesionId: sesion.id,
                     tipo: 'auxiliares',
                     titulo: auxiliar.nombre,
@@ -3240,8 +3274,7 @@
                     descripcion: `Rol: Auxiliar${auxiliar2 ? ' Principal' : ''}\n` +
                         `Sesión: ${sesion.nombre || sesion.tipo}\n` +
                         `Tipo: ${sesion.tipo}\n` +
-                        (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
-                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        `Timoneles: ${nombresTimoneles}\n` +
                         (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                         (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
                         `Participantes: ${sesion.participantes.length}`,
@@ -3254,7 +3287,7 @@
             // 5. EVENTO PARA AUXILIAR 2 (si existe)
             if (auxiliar2) {
                 const eventoAuxiliar2 = {
-                    id: Date.now() + Math.random() + 4,
+                    id: Date.now() + Math.random() + 300,
                     sesionId: sesion.id,
                     tipo: 'auxiliares',
                     titulo: auxiliar2.nombre,
@@ -3263,8 +3296,7 @@
                     descripcion: `Rol: Auxiliar Secundario\n` +
                         `Sesión: ${sesion.nombre || sesion.tipo}\n` +
                         `Tipo: ${sesion.tipo}\n` +
-                        (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
-                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        `Timoneles: ${nombresTimoneles}\n` +
                         `Auxiliar Principal: ${auxiliar.nombre}\n` +
                         (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
                         `Participantes: ${sesion.participantes.length}`,
@@ -3277,7 +3309,7 @@
             // 6. EVENTO EN CALENDARIO DE ZODIAC (solo si hay zodiac asignado)
             if (zodiacPersona) {
                 const eventoZodiac = {
-                    id: Date.now() + Math.random() + 5,
+                    id: Date.now() + Math.random() + 400,
                     sesionId: sesion.id,
                     tipo: 'zodiac',
                     titulo: zodiacPersona.nombre,
@@ -3286,8 +3318,7 @@
                     descripcion: `Rol: Zodiac\n` +
                         `Sesión: ${sesion.nombre || sesion.tipo}\n` +
                         `Tipo: ${sesion.tipo}\n` +
-                        (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
-                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        `Timoneles: ${nombresTimoneles}\n` +
                         (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                         (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                         `Participantes: ${sesion.participantes.length}`,
@@ -3641,42 +3672,48 @@
                     `👥 *Participantes:* ${sesionGuardada.participantes.length}\n\n`;
                 
                 // Agregar mensajes para NUEVO personal asignado
-                const timonel = users.find(u => u.id === sesionGuardada.timonelId);
+                // Obtener TODOS los timoneles asignados (timonelIds + timonel2Id)
+                const timonelesIds = sesionGuardada.timonelIds || (sesionGuardada.timonelId ? [sesionGuardada.timonelId] : []);
+                const todosLosTimoneles = timonelesIds.map(id => users.find(u => u.id === id)).filter(Boolean);
                 const timonel2 = sesionGuardada.timonel2Id ? users.find(u => u.id === sesionGuardada.timonel2Id) : null;
+                if (timonel2 && !timonelesIds.includes(sesionGuardada.timonel2Id)) {
+                    todosLosTimoneles.push(timonel2);
+                }
+                
                 const auxiliar = auxiliares.find(a => a.id === sesionGuardada.auxiliarId);
                 const auxiliar2 = sesionGuardada.auxiliar2Id ? auxiliares.find(a => a.id === sesionGuardada.auxiliar2Id) : null;
                 const zodiacPersona = zodiac.find(z => z.id === sesionGuardada.zodiacId);
                 
-                if (timonel && timonel.telefono) {
-                    const telefono = timonel.telefono.replace(/\D/g, '');
-                    if (telefono) {
-                        todosLosMensajes.push({
-                            telefono: telefono,
-                            mensaje: mensajeBase + `👤 *Tu rol:* Timonel Principal`,
-                            nombre: timonel.nombre,
-                            rol: 'Timonel Principal'
-                        });
+                // Mensajes para TODOS los timoneles
+                todosLosTimoneles.forEach((timonel, index) => {
+                    if (timonel && timonel.telefono) {
+                        const telefono = timonel.telefono.replace(/\D/g, '');
+                        if (telefono) {
+                            const rolTexto = todosLosTimoneles.length > 1 
+                                ? `Timonel ${index + 1}` 
+                                : 'Timonel Principal';
+                            const otrosTimoneles = todosLosTimoneles.filter((t, i) => i !== index);
+                            const infoOtrosTimoneles = otrosTimoneles.length > 0 
+                                ? `\n👤 *Otros timoneles:* ${otrosTimoneles.map(t => t.nombre).join(', ')}` 
+                                : '';
+                            
+                            todosLosMensajes.push({
+                                telefono: telefono,
+                                mensaje: mensajeBase + `👤 *Tu rol:* ${rolTexto}${infoOtrosTimoneles}`,
+                                nombre: timonel.nombre,
+                                rol: rolTexto
+                            });
+                        }
                     }
-                }
-                
-                if (timonel2 && timonel2.telefono) {
-                    const telefono = timonel2.telefono.replace(/\D/g, '');
-                    if (telefono) {
-                        todosLosMensajes.push({
-                            telefono: telefono,
-                            mensaje: mensajeBase + `👤 *Tu rol:* Timonel Secundario\n👤 *Timonel Principal:* ${timonel ? timonel.nombre : '-'}`,
-                            nombre: timonel2.nombre,
-                            rol: 'Timonel Secundario'
-                        });
-                    }
-                }
+                });
                 
                 if (auxiliar && auxiliar.telefono) {
                     const telefono = auxiliar.telefono.replace(/\D/g, '');
                     if (telefono) {
+                        const nombresTimoneles = todosLosTimoneles.map(t => t.nombre).join(', ') || '-';
                         todosLosMensajes.push({
                             telefono: telefono,
-                            mensaje: mensajeBase + `🆘 *Tu rol:* Auxiliar Principal\n👤 *Timonel:* ${timonel ? timonel.nombre : '-'}`,
+                            mensaje: mensajeBase + `🆘 *Tu rol:* Auxiliar Principal\n👤 *Timoneles:* ${nombresTimoneles}`,
                             nombre: auxiliar.nombre,
                             rol: 'Auxiliar Principal'
                         });
@@ -3686,9 +3723,10 @@
                 if (auxiliar2 && auxiliar2.telefono) {
                     const telefono = auxiliar2.telefono.replace(/\D/g, '');
                     if (telefono) {
+                        const nombresTimoneles = todosLosTimoneles.map(t => t.nombre).join(', ') || '-';
                         todosLosMensajes.push({
                             telefono: telefono,
-                            mensaje: mensajeBase + `🆘 *Tu rol:* Auxiliar Secundario\n👤 *Timonel:* ${timonel ? timonel.nombre : '-'}`,
+                            mensaje: mensajeBase + `🆘 *Tu rol:* Auxiliar Secundario\n👤 *Timoneles:* ${nombresTimoneles}`,
                             nombre: auxiliar2.nombre,
                             rol: 'Auxiliar Secundario'
                         });
@@ -3698,9 +3736,10 @@
                 if (zodiacPersona && zodiacPersona.telefono) {
                     const telefono = zodiacPersona.telefono.replace(/\D/g, '');
                     if (telefono) {
+                        const nombresTimoneles = todosLosTimoneles.map(t => t.nombre).join(', ') || '-';
                         todosLosMensajes.push({
                             telefono: telefono,
-                            mensaje: mensajeBase + `🚤 *Tu rol:* Zodiac\n👤 *Timonel:* ${timonel ? timonel.nombre : '-'}`,
+                            mensaje: mensajeBase + `🚤 *Tu rol:* Zodiac\n👤 *Timoneles:* ${nombresTimoneles}`,
                             nombre: zodiacPersona.nombre,
                             rol: 'Zodiac'
                         });
