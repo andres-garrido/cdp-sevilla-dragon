@@ -1559,102 +1559,6 @@
             
             return html;
         }
-                'timoneles': '👤 Calendario de Timoneles',
-                'auxiliares': '🆘 Calendario de Auxiliares',
-                'zodiac': '🚤 Calendario de Zodiac'
-            };
-            
-            const colores = {
-                'sesiones': 'bg-blue-500',
-                'timoneles': 'bg-green-500',
-                'auxiliares': 'bg-orange-500',
-                'zodiac': 'bg-purple-500'
-            };
-            
-            // Header con navegación
-            let html = `
-                <div class="mb-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-3xl font-bold">${titulos[tipoActual]}</h3>
-                        <div class="flex gap-3 items-center">
-                            <button onclick="cambiarMesCalendario(-1)" 
-                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">
-                                ◀ Anterior
-                            </button>
-                            <span class="text-xl font-bold px-4">${nombresMeses[mes]} ${año}</span>
-                            <button onclick="cambiarMesCalendario(1)" 
-                                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">
-                                Siguiente ▶
-                            </button>
-                            <button onclick="irAHoyCalendario()" 
-                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold">
-                                Hoy
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Grid de días -->
-                <div class="border rounded-lg overflow-hidden">
-                    <!-- Header de días de la semana -->
-                    <div class="grid grid-cols-7 bg-gray-100 border-b">
-                        ${nombresDias.map(dia => `
-                            <div class="p-3 text-center font-bold text-gray-700 border-r last:border-r-0">
-                                ${dia}
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <!-- Días del mes -->
-                    <div class="grid grid-cols-7" style="grid-auto-rows: minmax(120px, auto);">
-            `;
-            
-            // Agregar días vacíos al inicio
-            for (let i = 0; i < primerDiaSemana; i++) {
-                html += `<div class="border-r border-b bg-gray-50"></div>`;
-            }
-            
-            // Agregar días del mes
-            for (let dia = 1; dia <= totalDias; dia++) {
-                const fechaActual = `${año}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-                const hoy = new Date();
-                const esHoy = año === hoy.getFullYear() && mes === hoy.getMonth() && dia === hoy.getDate();
-                
-                // Buscar eventos de este día
-                const eventosDelDia = eventosFiltrados.filter(e => e.fecha === fechaActual);
-                
-                html += `
-                    <div class="border-r border-b p-2 ${esHoy ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-50">
-                        <div class="font-bold text-right mb-2 ${esHoy ? 'text-blue-600 text-lg' : 'text-gray-700'}">
-                            ${dia}
-                        </div>
-                        <div class="space-y-1">
-                            ${eventosDelDia.map(evento => `
-                                <div onclick="mostrarDetalleEvento(${evento.sesionId})" 
-                                    class="${colores[tipoActual]} text-white text-xs p-1 rounded cursor-pointer hover:opacity-80 truncate"
-                                    title="${evento.titulo}">
-                                    ${evento.horario} ${evento.titulo.length > 20 ? evento.titulo.substring(0, 20) + '...' : evento.titulo}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Completar última semana con días vacíos si es necesario
-            const totalCeldas = primerDiaSemana + totalDias;
-            const celdasRestantes = (7 - (totalCeldas % 7)) % 7;
-            for (let i = 0; i < celdasRestantes; i++) {
-                html += `<div class="border-r border-b bg-gray-50"></div>`;
-            }
-            
-            html += `
-                    </div>
-                </div>
-            `;
-            
-            return html;
-        }
 
         // INCIDENCIAS
         function renderIncidencias() {
@@ -4154,7 +4058,7 @@
                 año: new Date().getFullYear()
             };
             estadoCalendario.tipoActual = tipo;
-            estadoCalendario.modoVista = true; // Activar modo vista
+            estadoCalendario.modoVista = true;
             DB.set('estadoCalendario', estadoCalendario);
             render();
         };
@@ -4164,7 +4068,7 @@
                 mes: new Date().getMonth(),
                 año: new Date().getFullYear()
             };
-            estadoCalendario.modoVista = false; // Desactivar modo vista
+            estadoCalendario.modoVista = false;
             DB.set('estadoCalendario', estadoCalendario);
             render();
         };
