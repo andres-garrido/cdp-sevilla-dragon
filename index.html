@@ -792,19 +792,19 @@
             const users = DB.get('users') || [];
             const timoneles = users.filter(u => u.role === 'timonel');
             
-            // Ordenar sesiones: primero la más próxima al día y hora actual
+            // Filtrar sesiones actuales y futuras (del día de hoy en adelante)
             const ahora = new Date();
-            sesiones.sort((a, b) => {
+            const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()); // Inicio del día de hoy
+            
+            const sesionesFuturas = sesiones.filter(s => {
+                const fechaHoraSesion = new Date(s.fecha + ' ' + s.horario);
+                return fechaHoraSesion >= hoyInicio;
+            });
+            
+            // Ordenar sesiones futuras cronológicamente (más próxima primero)
+            sesionesFuturas.sort((a, b) => {
                 const fechaHoraA = new Date(a.fecha + ' ' + a.horario);
                 const fechaHoraB = new Date(b.fecha + ' ' + b.horario);
-                const difA = Math.abs(fechaHoraA - ahora);
-                const difB = Math.abs(fechaHoraB - ahora);
-                
-                // Primero ordenar por cercanía al momento actual
-                if (difA !== difB) {
-                    return difA - difB;
-                }
-                // Si tienen la misma distancia, ordenar cronológicamente
                 return fechaHoraA - fechaHoraB;
             });
 
@@ -812,7 +812,10 @@
                 <div class="container mx-auto px-4 py-8">
                     <div class="flex justify-between mb-6">
                         <h2 class="text-4xl font-bold">Gestión de Sesiones</h2>
-                        <button onclick="mostrarFormSesion()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">+ Nueva Sesión</button>
+                        <div class="flex gap-3">
+                            <button onclick="mostrarSesionesPasadas()" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold">📚 Sesiones Pasadas</button>
+                            <button onclick="mostrarFormSesion()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">+ Nueva Sesión</button>
+                        </div>
                     </div>
                     
                     <div id="formSesion" class="hidden bg-white rounded-xl shadow-lg p-6 mb-6">
@@ -949,15 +952,15 @@
                     </div>
 
                     <div id="listaSesionesRegistradas" class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-xl font-bold mb-4">Sesiones Registradas (${sesiones.length})</h3>
-                        ${sesiones.length === 0 ? `
+                        <h3 class="text-xl font-bold mb-4">Sesiones Actuales y Futuras (${sesionesFuturas.length})</h3>
+                        ${sesionesFuturas.length === 0 ? `
                             <div class="text-center py-16">
                                 <div class="text-7xl mb-4">📅</div>
-                                <p class="text-2xl text-gray-500">No hay sesiones programadas</p>
+                                <p class="text-2xl text-gray-500">No hay sesiones programadas para hoy o futuras</p>
                             </div>
                         ` : `
                             <div class="space-y-4">
-                                ${sesiones.map(s => {
+                                ${sesionesFuturas.map(s => {
                                     const timonel = users.find(u => u.id === s.timonelId);
                                     const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
                                     const auxiliares = DB.get('auxiliares') || [];
@@ -1070,6 +1073,16 @@
                             <div id="qrcode" class="flex justify-center mb-4"></div>
                             <p class="text-center text-gray-600 mb-4">Escanea para valorar</p>
                             <button onclick="cerrarQR()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">Cerrar</button>
+                        </div>
+                    </div>
+                    
+                    <div id="modalSesionesPasadas" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onclick="cerrarModal('modalSesionesPasadas')">
+                        <div class="bg-white rounded-2xl p-8 max-w-7xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-3xl font-bold">Sesiones Pasadas</h3>
+                                <button onclick="cerrarModal('modalSesionesPasadas')" class="text-4xl hover:text-red-600">&times;</button>
+                            </div>
+                            <div id="contenidoSesionesPasadas"></div>
                         </div>
                     </div>
                 </div>
@@ -3123,19 +3136,31 @@
             
             // Abrir URLs en nuevas pestañas con pequeño retraso entre ellas
             if (urlsCalendarios.length > 0) {
-                const accion = esEdicion ? 'actualizado' : 'creado';
-                const mensaje = `✅ Evento ${accion}. Se abrirán ${urlsCalendarios.length} pestaña(s) para añadir/actualizar en Google Calendar:\n\n` +
-                    urlsCalendarios.map(c => `• ${c.nombre}`).join('\n') +
-                    `\n\nNOTA: Debes guardar el evento en cada calendario manualmente.`;
-                
-                alert(mensaje);
-                
                 // Abrir cada URL con un pequeño retraso para evitar bloqueos del navegador
                 urlsCalendarios.forEach((cal, index) => {
                     setTimeout(() => {
                         window.open(cal.url, '_blank');
                     }, index * 500); // 500ms de retraso entre cada apertura
                 });
+                
+                // Mostrar mensaje informativo después de abrir las pestañas
+                setTimeout(() => {
+                    const accion = esEdicion ? 'modificada' : 'creada';
+                    let mensaje = `✅ Sesión ${accion} correctamente.\n\n`;
+                    mensaje += `Se han abierto ${urlsCalendarios.length} pestaña(s) de Google Calendar:\n`;
+                    urlsCalendarios.map(c => mensaje += `• ${c.nombre}\n`);
+                    
+                    if (esEdicion) {
+                        mensaje += `\n⚠️ IMPORTANTE: Si ya existen eventos en los calendarios para esta sesión, debes:\n`;
+                        mensaje += `1. ELIMINAR manualmente los eventos antiguos de cada calendario\n`;
+                        mensaje += `2. GUARDAR los nuevos eventos que se han abierto\n\n`;
+                        mensaje += `Esto actualizará la información en los calendarios.`;
+                    } else {
+                        mensaje += `\nGuarda el evento en cada calendario que se ha abierto.`;
+                    }
+                    
+                    console.log(mensaje);
+                }, (urlsCalendarios.length * 500) + 500);
             }
         }
 
@@ -3387,7 +3412,32 @@
             // SINCRONIZAR CON GOOGLE CALENDAR
             const sesionGuardadaParaCalendar = data.find(s => s.id === sesionGuardadaId);
             if (sesionGuardadaParaCalendar) {
-                sincronizarConCalendario(sesionGuardadaParaCalendar, editingSesionId ? true : false);
+                // Determinar si debemos sincronizar con calendario
+                let debeSincronizar = true;
+                
+                if (editingSesionId && sesionAnterior) {
+                    // En ediciones, detectar si hubo cambios significativos
+                    const huboCambios = (
+                        sesionAnterior.fecha !== sesionGuardadaParaCalendar.fecha ||
+                        sesionAnterior.horario !== sesionGuardadaParaCalendar.horario ||
+                        sesionAnterior.nombre !== sesionGuardadaParaCalendar.nombre ||
+                        sesionAnterior.tipo !== sesionGuardadaParaCalendar.tipo ||
+                        sesionAnterior.timonelId !== sesionGuardadaParaCalendar.timonelId ||
+                        sesionAnterior.timonel2Id !== sesionGuardadaParaCalendar.timonel2Id ||
+                        sesionAnterior.auxiliarId !== sesionGuardadaParaCalendar.auxiliarId ||
+                        sesionAnterior.auxiliar2Id !== sesionGuardadaParaCalendar.auxiliar2Id ||
+                        sesionAnterior.zodiacId !== sesionGuardadaParaCalendar.zodiacId ||
+                        sesionAnterior.barcoId !== sesionGuardadaParaCalendar.barcoId ||
+                        sesionAnterior.participantes.length !== sesionGuardadaParaCalendar.participantes.length
+                    );
+                    
+                    if (huboCambios) {
+                        sincronizarConCalendario(sesionGuardadaParaCalendar, true);
+                    }
+                } else {
+                    // Sesión nueva - siempre sincronizar
+                    sincronizarConCalendario(sesionGuardadaParaCalendar, false);
+                }
             }
             
             // Preparar TODOS los mensajes de WhatsApp (asignados + desasignados)
@@ -3601,6 +3651,160 @@
             `;
             document.getElementById('modalParticipantes').classList.remove('hidden');
         };
+        
+        window.mostrarSesionesPasadas = function() {
+            const sesiones = DB.get('sesiones') || [];
+            const users = DB.get('users') || [];
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
+            const barcos = DB.get('barcos') || [];
+            
+            // Filtrar sesiones pasadas (anteriores al inicio del día de hoy)
+            const ahora = new Date();
+            const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+            
+            const sesionesPasadas = sesiones.filter(s => {
+                const fechaHoraSesion = new Date(s.fecha + ' ' + s.horario);
+                return fechaHoraSesion < hoyInicio;
+            });
+            
+            // Ordenar sesiones pasadas cronológicamente (más reciente primero)
+            sesionesPasadas.sort((a, b) => {
+                const fechaHoraA = new Date(a.fecha + ' ' + a.horario);
+                const fechaHoraB = new Date(b.fecha + ' ' + b.horario);
+                return fechaHoraB - fechaHoraA;
+            });
+            
+            const contenido = document.getElementById('contenidoSesionesPasadas');
+            
+            if (sesionesPasadas.length === 0) {
+                contenido.innerHTML = `
+                    <div class="text-center py-16">
+                        <div class="text-7xl mb-4">📅</div>
+                        <p class="text-2xl text-gray-500">No hay sesiones pasadas</p>
+                    </div>
+                `;
+            } else {
+                contenido.innerHTML = `
+                    <div class="mb-4 text-gray-600">
+                        <p class="text-lg"><strong>${sesionesPasadas.length}</strong> sesiones pasadas encontradas</p>
+                    </div>
+                    <div class="space-y-4">
+                        ${sesionesPasadas.map(s => {
+                            const timonel = users.find(u => u.id === s.timonelId);
+                            const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
+                            const auxiliar = auxiliares.find(a => a.id === s.auxiliarId);
+                            const auxiliar2 = s.auxiliar2Id ? auxiliares.find(a => a.id === s.auxiliar2Id) : null;
+                            const zodiacPersona = zodiac.find(z => z.id === s.zodiacId);
+                            const barco = barcos.find(b => b.id === s.barcoId);
+                            const asist = DB.get('asistencias') || [];
+                            const tieneAsistencia = asist.some(a => a.sesionId === s.id);
+                            const incidencias = DB.get('incidencias') || [];
+                            const incidenciasSesion = incidencias.filter(i => i.sesionId === s.id);
+                            const tieneCancelacion = incidenciasSesion.some(i => i.tipo === 'cancelacion');
+                            const tieneIncidencias = incidenciasSesion.length > 0 && !tieneCancelacion;
+                            
+                            return `
+                            <div class="border-2 rounded-lg p-5 ${tieneCancelacion ? 'bg-orange-50 border-orange-300' : 'hover:border-blue-400'}">
+                                <div class="flex justify-between">
+                                    <div class="flex-1">
+                                        <!-- Fila 1: Nombre de sesión y tipo -->
+                                        <div class="flex items-center gap-3 mb-2 flex-wrap">
+                                            <h4 class="text-2xl font-bold">${s.nombre || s.tipo}</h4>
+                                            <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">
+                                                ${s.tipo}
+                                            </span>
+                                            ${s.cerrada ? '<span class="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">✓ CERRADA</span>' : ''}
+                                            ${tieneAsistencia && !s.cerrada ? '<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">✓ Asistencia registrada</span>' : ''}
+                                            ${tieneCancelacion ? '<span class="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-bold">❌ CANCELADA</span>' : ''}
+                                            ${tieneIncidencias && !tieneCancelacion ? '<span class="px-3 py-1 bg-yellow-500 text-white rounded-full text-sm font-bold">⚠️ Incidencias</span>' : ''}
+                                        </div>
+                                        
+                                        <!-- Fila 2: Fecha, hora y representante -->
+                                        <div class="mb-2">
+                                            <p class="text-gray-600">📅 ${new Date(s.fecha).toLocaleDateString('es-ES')} | ⏰ ${s.horario}</p>
+                                            <p class="text-gray-600">👤 Representante: ${s.representante || '-'} | 📞 ${s.telefonoRepresentante || '-'}</p>
+                                        </div>
+                                        
+                                        <!-- Fila 3: Barco y Personal asignado -->
+                                        <div class="grid grid-cols-1 gap-2 mb-2">
+                                            ${barco ? `
+                                                <div>
+                                                    <p class="text-gray-700"><strong>🛶 Barco:</strong> ${barco.nombre}</p>
+                                                </div>
+                                            ` : ''}
+                                            <div>
+                                                <p class="text-gray-700"><strong>👤 Timonel${timonel2 ? 'es' : ''}:</strong> ${timonel ? timonel.nombre : 'Sin asignar'}${timonel2 ? ` + ${timonel2.nombre}` : ''}</p>
+                                            </div>
+                                            ${auxiliar || auxiliar2 ? `
+                                                <div>
+                                                    <p class="text-gray-700"><strong>🆘 Auxiliar${auxiliar2 ? 'es' : ''}:</strong> ${auxiliar ? auxiliar.nombre : '-'}${auxiliar2 ? ` + ${auxiliar2.nombre}` : ''}</p>
+                                                </div>
+                                            ` : ''}
+                                            ${zodiacPersona ? `
+                                                <div>
+                                                    <p class="text-gray-700"><strong>🚤 Zodiac:</strong> ${zodiacPersona.nombre}</p>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        <!-- Participantes -->
+                                        <p class="text-gray-600">👥 ${s.participantes.length} participantes</p>
+                                        
+                                        <!-- Incidencias -->
+                                        ${incidenciasSesion.length > 0 ? `
+                                            <div class="mt-3">
+                                                <p class="font-bold text-sm mb-1">Incidencias registradas:</p>
+                                                ${incidenciasSesion.map(inc => `
+                                                    <div class="text-sm ${inc.tipo === 'cancelacion' ? 'text-orange-700' : 'text-yellow-700'} mb-1">
+                                                        • ${inc.tipo === 'cancelacion' ? '❌ Cancelación' : '⚠️ Incidencia'}: ${inc.descripcion || '-'}
+                                                        ${inc.observaciones ? ` (${inc.observaciones})` : ''}
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="flex gap-2 flex-wrap justify-end items-start">
+                                        <button onclick="verParticipantesSesionPasada(${s.id})" class="bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold">👥 Ver Participantes</button>
+                                        ${incidenciasSesion.length > 0 ? `
+                                            <button onclick="verIncidenciasSesion(${s.id})" class="bg-yellow-100 text-yellow-700 px-4 py-2 rounded font-bold">⚠️ Ver Incidencias</button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `}).join('')}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('modalSesionesPasadas').classList.remove('hidden');
+        };
+        
+        window.verParticipantesSesionPasada = function(sesionId) {
+            // Usar la misma función que verParticipantes
+            verParticipantes(sesionId);
+        };
+        
+        window.verIncidenciasSesion = function(sesionId) {
+            const incidencias = DB.get('incidencias') || [];
+            const incidenciasSesion = incidencias.filter(i => i.sesionId === sesionId);
+            
+            if (incidenciasSesion.length === 0) {
+                alert('No hay incidencias registradas para esta sesión');
+                return;
+            }
+            
+            let mensaje = '=== INCIDENCIAS DE LA SESIÓN ===\n\n';
+            incidenciasSesion.forEach((inc, index) => {
+                mensaje += `${index + 1}. ${inc.tipo === 'cancelacion' ? 'CANCELACIÓN' : 'INCIDENCIA'}\n`;
+                if (inc.descripcion) mensaje += `   Descripción: ${inc.descripcion}\n`;
+                if (inc.observaciones) mensaje += `   Observaciones: ${inc.observaciones}\n`;
+                mensaje += '\n';
+            });
+            
+            alert(mensaje);
+        };
+
 
         window.verSesionTimonel = function(sesionId) {
             const sesiones = DB.get('sesiones') || [];
