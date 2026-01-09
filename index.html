@@ -1361,137 +1361,98 @@
 
         // CALENDARIOS
         function renderCalendarios() {
-            const calendarios = DB.get('calendarios') || {
-                sesiones: '',
-                timoneles: '',
-                auxiliares: '',
-                zodiac: ''
-            };
+            const eventosCalendario = DB.get('eventosCalendario') || [];
+            
+            // Obtener mes y año actuales
+            const ahora = new Date();
+            const mesActual = ahora.getMonth();
+            const añoActual = ahora.getFullYear();
+            
+            // Filtrar eventos del mes actual
+            const eventosMesActual = eventosCalendario.filter(e => {
+                const [año, mes] = e.fecha.split('-').map(Number);
+                return mes - 1 === mesActual && año === añoActual;
+            });
+            
+            // Agrupar eventos por tipo
+            const eventosSesiones = eventosMesActual.filter(e => e.tipo === 'sesiones');
+            const eventosTimoneles = eventosMesActual.filter(e => e.tipo === 'timoneles');
+            const eventosAuxiliares = eventosMesActual.filter(e => e.tipo === 'auxiliares');
+            const eventosZodiac = eventosMesActual.filter(e => e.tipo === 'zodiac');
 
             return `
                 <div class="container mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-6">Calendario de Sesiones</h2>
+                    <h2 class="text-4xl font-bold mb-6">Calendarios Internos</h2>
                     
-                    <!-- Botones de acción -->
+                    <!-- Selector de tipo de calendario -->
                     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                        <h3 class="text-2xl font-bold mb-4">📆 Gestión de Calendario</h3>
-                        <div class="grid grid-cols-5 gap-3">
-                            <button onclick="mostrarConfiguracionCalendarios()" 
-                                class="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold">
-                                ⚙️ Configurar IDs
+                        <h3 class="text-2xl font-bold mb-4">📆 Seleccionar Calendario</h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            <button onclick="mostrarCalendarioInterno('sesiones')" 
+                                class="px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-bold">
+                                📅 Sesiones (${eventosSesiones.length})
                             </button>
-                            ${calendarios.sesiones ? `
-                                <button onclick="mostrarCalendario('sesiones', '${calendarios.sesiones.replace(/"/g, '&quot;')}')" 
-                                    class="px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-bold">
-                                    📅 Sesiones
-                                </button>
-                            ` : '<div class="px-6 py-4 bg-gray-100 text-gray-400 rounded-lg font-bold text-center">📅 Sesiones</div>'}
-                            ${calendarios.timoneles ? `
-                                <button onclick="mostrarCalendario('timoneles', '${calendarios.timoneles.replace(/"/g, '&quot;')}')" 
-                                    class="px-6 py-4 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-bold">
-                                    👤 Timoneles
-                                </button>
-                            ` : '<div class="px-6 py-4 bg-gray-100 text-gray-400 rounded-lg font-bold text-center">👤 Timoneles</div>'}
-                            ${calendarios.auxiliares ? `
-                                <button onclick="mostrarCalendario('auxiliares', '${calendarios.auxiliares.replace(/"/g, '&quot;')}')" 
-                                    class="px-6 py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-bold">
-                                    🆘 Auxiliares
-                                </button>
-                            ` : '<div class="px-6 py-4 bg-gray-100 text-gray-400 rounded-lg font-bold text-center">🆘 Auxiliares</div>'}
-                            ${calendarios.zodiac ? `
-                                <button onclick="mostrarCalendario('zodiac', '${calendarios.zodiac.replace(/"/g, '&quot;')}')" 
-                                    class="px-6 py-4 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold">
-                                    🚤 Zodiac
-                                </button>
-                            ` : '<div class="px-6 py-4 bg-gray-100 text-gray-400 rounded-lg font-bold text-center">🚤 Zodiac</div>'}
+                            <button onclick="mostrarCalendarioInterno('timoneles')" 
+                                class="px-6 py-4 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-bold">
+                                👤 Timoneles (${eventosTimoneles.length})
+                            </button>
+                            <button onclick="mostrarCalendarioInterno('auxiliares')" 
+                                class="px-6 py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-bold">
+                                🆘 Auxiliares (${eventosAuxiliares.length})
+                            </button>
+                            <button onclick="mostrarCalendarioInterno('zodiac')" 
+                                class="px-6 py-4 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-bold">
+                                🚤 Zodiac (${eventosZodiac.length})
+                            </button>
                         </div>
                     </div>
                     
-                    ${!calendarios.sesiones && !calendarios.timoneles && !calendarios.auxiliares && !calendarios.zodiac ? `
-                        <div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
-                            <h3 class="text-xl font-bold mb-3">📘 Instrucciones</h3>
-                            <ol class="list-decimal list-inside space-y-2">
-                                <li>Pulsa el botón "⚙️ Configurar IDs" para configurar los calendarios</li>
-                                <li>Crea los calendarios necesarios en Google Calendar (ej: "Sesiones CDP", "Timoneles CDP", etc.)</li>
-                                <li>Para cada calendario, haz clic en los 3 puntos → Configuración y compartición</li>
-                                <li>En "Integrar calendario", copia el <strong>ID del calendario</strong> (ejemplo: abc123@group.calendar.google.com)</li>
-                                <li>Pega los IDs en los campos correspondientes y guarda</li>
-                            </ol>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Calendario mensual embebido (pantalla completa) -->
-                    <div id="calendarioEmbebido" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
-                        <div class="bg-white rounded-xl shadow-2xl w-full h-full max-w-7xl max-h-screen overflow-hidden flex flex-col">
-                            <div class="flex justify-between items-center p-6 border-b">
-                                <h3 class="text-3xl font-bold" id="tituloCalendario"></h3>
-                                <button onclick="ocultarCalendario()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-xl">
-                                    ✕ Cerrar
-                                </button>
+                    <!-- Vista de eventos por calendario -->
+                    <div id="vistaCalendario" class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold mb-4">📅 Calendario de Sesiones</h3>
+                        <p class="text-gray-600 mb-4">Mes actual: ${ahora.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
+                        
+                        ${eventosSesiones.length === 0 ? `
+                            <div class="text-center py-16">
+                                <div class="text-7xl mb-4">📅</div>
+                                <p class="text-2xl text-gray-500">No hay eventos en el calendario de sesiones este mes</p>
                             </div>
-                            <div class="flex-1 p-6">
-                                <iframe id="iframeCalendario" 
-                                    style="width: 100%; height: 100%; border: 0;" 
-                                    frameborder="0" 
-                                    scrolling="yes">
-                                </iframe>
+                        ` : `
+                            <div class="space-y-3">
+                                ${eventosSesiones.sort((a, b) => {
+                                    const fechaA = new Date(a.fecha + ' ' + a.horario);
+                                    const fechaB = new Date(b.fecha + ' ' + b.horario);
+                                    return fechaA - fechaB;
+                                }).map(e => `
+                                    <div class="border-l-4 p-4 rounded-lg hover:bg-gray-50" style="border-color: ${e.color}">
+                                        <div class="flex justify-between items-start">
+                                            <div class="flex-1">
+                                                <h4 class="text-xl font-bold mb-1">${e.titulo}</h4>
+                                                <p class="text-gray-600 mb-2">
+                                                    📅 ${new Date(e.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} 
+                                                    | ⏰ ${e.horario}
+                                                </p>
+                                                <div class="text-sm text-gray-700 whitespace-pre-line">${e.descripcion}</div>
+                                            </div>
+                                            <button onclick="verDetalleEvento(${e.sesionId})" 
+                                                class="ml-4 bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold hover:bg-blue-200">
+                                                Ver Sesión
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
                             </div>
-                        </div>
+                        `}
                     </div>
                     
-                    <!-- Modal de Configuración de ID -->
-                    <div id="modalConfigCalendarios" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-                        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-screen overflow-y-auto">
-                            <div class="p-8">
-                                <div class="flex justify-between items-center mb-6">
-                                    <h3 class="text-3xl font-bold">⚙️ Configurar ID de Calendario</h3>
-                                    <button onclick="cerrarConfiguracionCalendarios()" class="text-4xl hover:text-red-600">&times;</button>
-                                </div>
-                                
-                                <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
-                                    <p class="text-sm text-gray-700">
-                                        <strong>¿Cómo obtener el ID del calendario?</strong><br>
-                                        1. Abre Google Calendar<br>
-                                        2. Haz clic en los 3 puntos del calendario → Configuración y compartición<br>
-                                        3. En "Integrar calendario", copia el <strong>ID del calendario</strong>
-                                    </p>
-                                </div>
-                                
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-bold mb-2">📅 Calendario de Sesiones</label>
-                                        <input type="text" id="calSesiones" value="${calendarios.sesiones || ''}" 
-                                            placeholder="ID del calendario (ej: abc123@group.calendar.google.com)"
-                                            class="w-full px-4 py-3 border-2 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-bold mb-2">👤 Calendario de Timoneles</label>
-                                        <input type="text" id="calTimoneles" value="${calendarios.timoneles || ''}" 
-                                            placeholder="ID del calendario (ej: timoneles@group.calendar.google.com)"
-                                            class="w-full px-4 py-3 border-2 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-bold mb-2">🆘 Calendario de Auxiliares</label>
-                                        <input type="text" id="calAuxiliares" value="${calendarios.auxiliares || ''}" 
-                                            placeholder="ID del calendario (ej: auxiliares@group.calendar.google.com)"
-                                            class="w-full px-4 py-3 border-2 rounded-lg">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-bold mb-2">🚤 Calendario de Zodiac</label>
-                                        <input type="text" id="calZodiac" value="${calendarios.zodiac || ''}" 
-                                            placeholder="ID del calendario (ej: zodiac@group.calendar.google.com)"
-                                            class="w-full px-4 py-3 border-2 rounded-lg">
-                                    </div>
-                                    <div class="flex gap-4 pt-4">
-                                        <button onclick="guardarCalendarios()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg font-bold text-lg">
-                                            ✓ Guardar IDs de Calendarios
-                                        </button>
-                                        <button onclick="cerrarConfiguracionCalendarios()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-4 rounded-lg font-bold">
-                                            Cancelar
-                                        </button>
-                                    </div>
-                                </div>
+                    <!-- Modal para mostrar calendario específico -->
+                    <div id="modalCalendarioInterno" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onclick="cerrarCalendarioInterno()">
+                        <div class="bg-white rounded-2xl p-8 max-w-6xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 id="tituloCalendarioInterno" class="text-3xl font-bold"></h3>
+                                <button onclick="cerrarCalendarioInterno()" class="text-4xl hover:text-red-600">&times;</button>
                             </div>
+                            <div id="contenidoCalendarioInterno"></div>
                         </div>
                     </div>
                 </div>
@@ -2953,17 +2914,19 @@
             actualizarListaParticipantes();
         };
 
-        // Función para sincronizar sesión con Google Calendar
-        function sincronizarConCalendario(sesion, esEdicion) {
-            const calendarios = DB.get('calendarios') || {};
+        // ============ SISTEMA DE CALENDARIO INTERNO ============
+        
+        // Función para crear/actualizar eventos de calendario automáticamente
+        function gestionarEventosCalendario(sesion, esEdicion = false) {
+            const eventosCalendario = DB.get('eventosCalendario') || [];
             
-            // Verificar que hay calendarios configurados
-            if (!calendarios.sesiones && !calendarios.timoneles && !calendarios.auxiliares && !calendarios.zodiac) {
-                console.log('No hay calendarios configurados para sincronizar');
-                return;
+            // Si es edición, eliminar eventos antiguos de esta sesión
+            if (esEdicion) {
+                const eventosFiltrados = eventosCalendario.filter(e => e.sesionId !== sesion.id);
+                DB.set('eventosCalendario', eventosFiltrados);
             }
             
-            // Obtener información adicional
+            // Obtener información del personal
             const users = DB.get('users') || [];
             const auxiliares = DB.get('auxiliares') || [];
             const zodiac = DB.get('zodiac') || [];
@@ -2976,193 +2939,159 @@
             const zodiacPersona = zodiac.find(z => z.id === sesion.zodiacId);
             const barco = barcos.find(b => b.id === sesion.barcoId);
             
-            // Convertir fecha y hora al formato de Google Calendar (YYYYMMDDTHHMMSSZ)
-            const [year, month, day] = sesion.fecha.split('-');
-            const [hour, minute] = sesion.horario.split(':');
+            // Recargar eventos actualizados
+            const eventosActualizados = DB.get('eventosCalendario') || [];
             
-            // Fecha inicio
-            const fechaInicio = `${year}${month}${day}T${hour}${minute}00`;
-            
-            // Fecha fin (2 horas después por defecto)
-            const fechaFinDate = new Date(sesion.fecha + 'T' + sesion.horario);
-            fechaFinDate.setHours(fechaFinDate.getHours() + 2);
-            const endYear = fechaFinDate.getFullYear();
-            const endMonth = String(fechaFinDate.getMonth() + 1).padStart(2, '0');
-            const endDay = String(fechaFinDate.getDate()).padStart(2, '0');
-            const endHour = String(fechaFinDate.getHours()).padStart(2, '0');
-            const endMinute = String(fechaFinDate.getMinutes()).padStart(2, '0');
-            const fechaFin = `${endYear}${endMonth}${endDay}T${endHour}${endMinute}00`;
-            
-            // Título del evento
-            const titulo = `${sesion.nombre || sesion.tipo} - ${sesion.tipo}`;
-            
-            // Descripción detallada del evento
-            let descripcion = `SESIÓN CDP SEVILLA-DRAGÓN\n\n`;
-            descripcion += `Tipo: ${sesion.tipo}\n`;
-            if (barco) descripcion += `Barco: ${barco.nombre}\n`;
-            if (sesion.representante) descripcion += `Representante: ${sesion.representante}\n`;
-            if (sesion.telefonoRepresentante) descripcion += `Teléfono: ${sesion.telefonoRepresentante}\n`;
-            descripcion += `\nPERSONAL:\n`;
-            if (timonel) descripcion += `• Timonel: ${timonel.nombre}${timonel.telefono ? ' (' + timonel.telefono + ')' : ''}\n`;
-            if (timonel2) descripcion += `• Timonel 2: ${timonel2.nombre}${timonel2.telefono ? ' (' + timonel2.telefono + ')' : ''}\n`;
-            if (auxiliar) descripcion += `• Auxiliar: ${auxiliar.nombre}${auxiliar.telefono ? ' (' + auxiliar.telefono + ')' : ''}\n`;
-            if (auxiliar2) descripcion += `• Auxiliar 2: ${auxiliar2.nombre}${auxiliar2.telefono ? ' (' + auxiliar2.telefono + ')' : ''}\n`;
-            if (zodiacPersona) descripcion += `• Zodiac: ${zodiacPersona.nombre}${zodiacPersona.telefono ? ' (' + zodiacPersona.telefono + ')' : ''}\n`;
-            descripcion += `\nPARTICIPANTES: ${sesion.participantes.length}`;
-            
-            // Ubicación
-            const ubicacion = 'CDP Sevilla-Dragón';
-            
-            // Crear URLs para cada calendario configurado
-            const urlsCalendarios = [];
-            
-            // Calendario de sesiones
-            if (calendarios.sesiones) {
-                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-                    `&text=${encodeURIComponent(titulo)}` +
-                    `&dates=${fechaInicio}/${fechaFin}` +
-                    `&details=${encodeURIComponent(descripcion)}` +
-                    `&location=${encodeURIComponent(ubicacion)}` +
-                    `&add=${encodeURIComponent(calendarios.sesiones)}`;
-                urlsCalendarios.push({ nombre: 'Sesiones', url: url });
-            }
-            
-            // Calendario de timoneles (si hay timonel asignado)
-            if (calendarios.timoneles && timonel) {
-                const descripcionTimonel = `SESIÓN ASIGNADA\n\n` +
-                    `Rol: Timonel${timonel2 ? ' Principal' : ''}\n` +
-                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
-                    `Tipo: ${sesion.tipo}\n` +
+            // 1. EVENTO EN CALENDARIO DE SESIONES (siempre se crea)
+            const eventoSesion = {
+                id: Date.now() + Math.random(),
+                sesionId: sesion.id,
+                tipo: 'sesiones',
+                titulo: `${sesion.nombre || sesion.tipo} - ${sesion.tipo}`,
+                fecha: sesion.fecha,
+                horario: sesion.horario,
+                descripcion: `Tipo: ${sesion.tipo}\n` +
                     (barco ? `Barco: ${barco.nombre}\n` : '') +
+                    `Representante: ${sesion.representante || '-'}\n` +
+                    `Teléfono: ${sesion.telefonoRepresentante || '-'}\n` +
+                    `Timonel: ${timonel ? timonel.nombre : 'Sin asignar'}\n` +
                     (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
                     (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                     (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                     (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                    `Participantes: ${sesion.participantes.length}`;
-                
-                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-                    `&text=${encodeURIComponent(titulo + ' - ' + timonel.nombre)}` +
-                    `&dates=${fechaInicio}/${fechaFin}` +
-                    `&details=${encodeURIComponent(descripcionTimonel)}` +
-                    `&location=${encodeURIComponent(ubicacion)}` +
-                    `&add=${encodeURIComponent(calendarios.timoneles)}`;
-                urlsCalendarios.push({ nombre: 'Timoneles (' + timonel.nombre + ')', url: url });
+                    `Participantes: ${sesion.participantes.length}`,
+                color: '#3b82f6' // azul
+            };
+            eventosActualizados.push(eventoSesion);
+            
+            // 2. EVENTO EN CALENDARIO DE TIMONELES (solo si hay timonel asignado)
+            if (timonel) {
+                const eventoTimonel = {
+                    id: Date.now() + Math.random() + 1,
+                    sesionId: sesion.id,
+                    tipo: 'timoneles',
+                    titulo: `${sesion.nombre || sesion.tipo} - ${timonel.nombre}`,
+                    fecha: sesion.fecha,
+                    horario: sesion.horario,
+                    descripcion: `Rol: Timonel${timonel2 ? ' Principal' : ''}\n` +
+                        `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                        `Tipo: ${sesion.tipo}\n` +
+                        (barco ? `Barco: ${barco.nombre}\n` : '') +
+                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                        (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                        (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                        `Participantes: ${sesion.participantes.length}`,
+                    personal: timonel.nombre,
+                    color: '#10b981' // verde
+                };
+                eventosActualizados.push(eventoTimonel);
             }
             
-            // Calendario de timonel 2
-            if (calendarios.timoneles && timonel2) {
-                const descripcionTimonel2 = `SESIÓN ASIGNADA\n\n` +
-                    `Rol: Timonel Secundario\n` +
-                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
-                    `Tipo: ${sesion.tipo}\n` +
-                    (barco ? `Barco: ${barco.nombre}\n` : '') +
-                    `Timonel Principal: ${timonel.nombre}\n` +
-                    (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
-                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
-                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                    `Participantes: ${sesion.participantes.length}`;
-                
-                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-                    `&text=${encodeURIComponent(titulo + ' - ' + timonel2.nombre)}` +
-                    `&dates=${fechaInicio}/${fechaFin}` +
-                    `&details=${encodeURIComponent(descripcionTimonel2)}` +
-                    `&location=${encodeURIComponent(ubicacion)}` +
-                    `&add=${encodeURIComponent(calendarios.timoneles)}`;
-                urlsCalendarios.push({ nombre: 'Timoneles (' + timonel2.nombre + ')', url: url });
+            // 3. EVENTO PARA TIMONEL 2 (si existe)
+            if (timonel2) {
+                const eventoTimonel2 = {
+                    id: Date.now() + Math.random() + 2,
+                    sesionId: sesion.id,
+                    tipo: 'timoneles',
+                    titulo: `${sesion.nombre || sesion.tipo} - ${timonel2.nombre}`,
+                    fecha: sesion.fecha,
+                    horario: sesion.horario,
+                    descripcion: `Rol: Timonel Secundario\n` +
+                        `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                        `Tipo: ${sesion.tipo}\n` +
+                        (barco ? `Barco: ${barco.nombre}\n` : '') +
+                        `Timonel Principal: ${timonel.nombre}\n` +
+                        (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                        (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                        (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                        `Participantes: ${sesion.participantes.length}`,
+                    personal: timonel2.nombre,
+                    color: '#10b981' // verde
+                };
+                eventosActualizados.push(eventoTimonel2);
             }
             
-            // Calendario de auxiliares (si hay auxiliar asignado)
-            if (calendarios.auxiliares && auxiliar) {
-                const descripcionAuxiliar = `SESIÓN ASIGNADA\n\n` +
-                    `Rol: Auxiliar${auxiliar2 ? ' Principal' : ''}\n` +
-                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
-                    `Tipo: ${sesion.tipo}\n` +
-                    (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
-                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
-                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
-                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                    `Participantes: ${sesion.participantes.length}`;
-                
-                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-                    `&text=${encodeURIComponent(titulo + ' - ' + auxiliar.nombre)}` +
-                    `&dates=${fechaInicio}/${fechaFin}` +
-                    `&details=${encodeURIComponent(descripcionAuxiliar)}` +
-                    `&location=${encodeURIComponent(ubicacion)}` +
-                    `&add=${encodeURIComponent(calendarios.auxiliares)}`;
-                urlsCalendarios.push({ nombre: 'Auxiliares (' + auxiliar.nombre + ')', url: url });
+            // 4. EVENTO EN CALENDARIO DE AUXILIARES (solo si hay auxiliar asignado)
+            if (auxiliar) {
+                const eventoAuxiliar = {
+                    id: Date.now() + Math.random() + 3,
+                    sesionId: sesion.id,
+                    tipo: 'auxiliares',
+                    titulo: `${sesion.nombre || sesion.tipo} - ${auxiliar.nombre}`,
+                    fecha: sesion.fecha,
+                    horario: sesion.horario,
+                    descripcion: `Rol: Auxiliar${auxiliar2 ? ' Principal' : ''}\n` +
+                        `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                        `Tipo: ${sesion.tipo}\n` +
+                        (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
+                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                        (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                        `Participantes: ${sesion.participantes.length}`,
+                    personal: auxiliar.nombre,
+                    color: '#f59e0b' // naranja
+                };
+                eventosActualizados.push(eventoAuxiliar);
             }
             
-            // Calendario de auxiliar 2
-            if (calendarios.auxiliares && auxiliar2) {
-                const descripcionAuxiliar2 = `SESIÓN ASIGNADA\n\n` +
-                    `Rol: Auxiliar Secundario\n` +
-                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
-                    `Tipo: ${sesion.tipo}\n` +
-                    (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
-                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
-                    `Auxiliar Principal: ${auxiliar.nombre}\n` +
-                    (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                    `Participantes: ${sesion.participantes.length}`;
-                
-                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-                    `&text=${encodeURIComponent(titulo + ' - ' + auxiliar2.nombre)}` +
-                    `&dates=${fechaInicio}/${fechaFin}` +
-                    `&details=${encodeURIComponent(descripcionAuxiliar2)}` +
-                    `&location=${encodeURIComponent(ubicacion)}` +
-                    `&add=${encodeURIComponent(calendarios.auxiliares)}`;
-                urlsCalendarios.push({ nombre: 'Auxiliares (' + auxiliar2.nombre + ')', url: url });
+            // 5. EVENTO PARA AUXILIAR 2 (si existe)
+            if (auxiliar2) {
+                const eventoAuxiliar2 = {
+                    id: Date.now() + Math.random() + 4,
+                    sesionId: sesion.id,
+                    tipo: 'auxiliares',
+                    titulo: `${sesion.nombre || sesion.tipo} - ${auxiliar2.nombre}`,
+                    fecha: sesion.fecha,
+                    horario: sesion.horario,
+                    descripcion: `Rol: Auxiliar Secundario\n` +
+                        `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                        `Tipo: ${sesion.tipo}\n` +
+                        (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
+                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        `Auxiliar Principal: ${auxiliar.nombre}\n` +
+                        (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
+                        `Participantes: ${sesion.participantes.length}`,
+                    personal: auxiliar2.nombre,
+                    color: '#f59e0b' // naranja
+                };
+                eventosActualizados.push(eventoAuxiliar2);
             }
             
-            // Calendario de zodiac (si hay zodiac asignado)
-            if (calendarios.zodiac && zodiacPersona) {
-                const descripcionZodiac = `SESIÓN ASIGNADA\n\n` +
-                    `Rol: Zodiac\n` +
-                    `Sesión: ${sesion.nombre || sesion.tipo}\n` +
-                    `Tipo: ${sesion.tipo}\n` +
-                    (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
-                    (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
-                    (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
-                    (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
-                    `Participantes: ${sesion.participantes.length}`;
-                
-                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-                    `&text=${encodeURIComponent(titulo + ' - ' + zodiacPersona.nombre)}` +
-                    `&dates=${fechaInicio}/${fechaFin}` +
-                    `&details=${encodeURIComponent(descripcionZodiac)}` +
-                    `&location=${encodeURIComponent(ubicacion)}` +
-                    `&add=${encodeURIComponent(calendarios.zodiac)}`;
-                urlsCalendarios.push({ nombre: 'Zodiac (' + zodiacPersona.nombre + ')', url: url });
+            // 6. EVENTO EN CALENDARIO DE ZODIAC (solo si hay zodiac asignado)
+            if (zodiacPersona) {
+                const eventoZodiac = {
+                    id: Date.now() + Math.random() + 5,
+                    sesionId: sesion.id,
+                    tipo: 'zodiac',
+                    titulo: `${sesion.nombre || sesion.tipo} - ${zodiacPersona.nombre}`,
+                    fecha: sesion.fecha,
+                    horario: sesion.horario,
+                    descripcion: `Rol: Zodiac\n` +
+                        `Sesión: ${sesion.nombre || sesion.tipo}\n` +
+                        `Tipo: ${sesion.tipo}\n` +
+                        (timonel ? `Timonel: ${timonel.nombre}\n` : '') +
+                        (timonel2 ? `Timonel 2: ${timonel2.nombre}\n` : '') +
+                        (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
+                        (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
+                        `Participantes: ${sesion.participantes.length}`,
+                    personal: zodiacPersona.nombre,
+                    color: '#8b5cf6' // morado
+                };
+                eventosActualizados.push(eventoZodiac);
             }
             
-            // Abrir URLs en nuevas pestañas con pequeño retraso entre ellas
-            if (urlsCalendarios.length > 0) {
-                // Abrir cada URL con un pequeño retraso para evitar bloqueos del navegador
-                urlsCalendarios.forEach((cal, index) => {
-                    setTimeout(() => {
-                        window.open(cal.url, '_blank');
-                    }, index * 500); // 500ms de retraso entre cada apertura
-                });
-                
-                // Mostrar mensaje informativo después de abrir las pestañas
-                setTimeout(() => {
-                    const accion = esEdicion ? 'modificada' : 'creada';
-                    let mensaje = `✅ Sesión ${accion} correctamente.\n\n`;
-                    mensaje += `Se han abierto ${urlsCalendarios.length} pestaña(s) de Google Calendar:\n`;
-                    urlsCalendarios.map(c => mensaje += `• ${c.nombre}\n`);
-                    
-                    if (esEdicion) {
-                        mensaje += `\n⚠️ IMPORTANTE: Si ya existen eventos en los calendarios para esta sesión, debes:\n`;
-                        mensaje += `1. ELIMINAR manualmente los eventos antiguos de cada calendario\n`;
-                        mensaje += `2. GUARDAR los nuevos eventos que se han abierto\n\n`;
-                        mensaje += `Esto actualizará la información en los calendarios.`;
-                    } else {
-                        mensaje += `\nGuarda el evento en cada calendario que se ha abierto.`;
-                    }
-                    
-                    console.log(mensaje);
-                }, (urlsCalendarios.length * 500) + 500);
-            }
+            // Guardar todos los eventos
+            DB.set('eventosCalendario', eventosActualizados);
         }
+        
+        // Función para eliminar eventos de calendario cuando se elimina una sesión
+        function eliminarEventosCalendario(sesionId) {
+            const eventosCalendario = DB.get('eventosCalendario') || [];
+            const eventosFiltrados = eventosCalendario.filter(e => e.sesionId !== sesionId);
+            DB.set('eventosCalendario', eventosFiltrados);
+        }
+
 
         window.guardarSesion = function(e) {
             e.preventDefault();
@@ -3409,35 +3338,10 @@
             
             DB.set('sesiones', data);
             
-            // SINCRONIZAR CON GOOGLE CALENDAR
+            // GESTIONAR EVENTOS EN CALENDARIOS INTERNOS
             const sesionGuardadaParaCalendar = data.find(s => s.id === sesionGuardadaId);
             if (sesionGuardadaParaCalendar) {
-                // Determinar si debemos sincronizar con calendario
-                let debeSincronizar = true;
-                
-                if (editingSesionId && sesionAnterior) {
-                    // En ediciones, detectar si hubo cambios significativos
-                    const huboCambios = (
-                        sesionAnterior.fecha !== sesionGuardadaParaCalendar.fecha ||
-                        sesionAnterior.horario !== sesionGuardadaParaCalendar.horario ||
-                        sesionAnterior.nombre !== sesionGuardadaParaCalendar.nombre ||
-                        sesionAnterior.tipo !== sesionGuardadaParaCalendar.tipo ||
-                        sesionAnterior.timonelId !== sesionGuardadaParaCalendar.timonelId ||
-                        sesionAnterior.timonel2Id !== sesionGuardadaParaCalendar.timonel2Id ||
-                        sesionAnterior.auxiliarId !== sesionGuardadaParaCalendar.auxiliarId ||
-                        sesionAnterior.auxiliar2Id !== sesionGuardadaParaCalendar.auxiliar2Id ||
-                        sesionAnterior.zodiacId !== sesionGuardadaParaCalendar.zodiacId ||
-                        sesionAnterior.barcoId !== sesionGuardadaParaCalendar.barcoId ||
-                        sesionAnterior.participantes.length !== sesionGuardadaParaCalendar.participantes.length
-                    );
-                    
-                    if (huboCambios) {
-                        sincronizarConCalendario(sesionGuardadaParaCalendar, true);
-                    }
-                } else {
-                    // Sesión nueva - siempre sincronizar
-                    sincronizarConCalendario(sesionGuardadaParaCalendar, false);
-                }
+                gestionarEventosCalendario(sesionGuardadaParaCalendar, editingSesionId ? true : false);
             }
             
             // Preparar TODOS los mensajes de WhatsApp (asignados + desasignados)
@@ -3591,22 +3495,14 @@
                 return;
             }
             
-            const calendarios = DB.get('calendarios') || {};
-            const hayCalendariosConfigurados = calendarios.sesiones || calendarios.timoneles || calendarios.auxiliares || calendarios.zodiac;
-            
-            let mensaje = '¿Eliminar esta sesión?';
-            if (hayCalendariosConfigurados) {
-                mensaje += '\n\n⚠️ IMPORTANTE: También deberás eliminar manualmente el evento de Google Calendar.';
-            }
-            
-            if (confirm(mensaje)) {
+            if (confirm('¿Eliminar esta sesión?\n\nSe eliminarán también todos los eventos asociados en los calendarios.')) {
                 const data = DB.get('sesiones') || [];
                 DB.set('sesiones', data.filter(s => s.id !== id));
                 
-                if (hayCalendariosConfigurados) {
-                    alert('✅ Sesión eliminada.\n\n📅 Recuerda eliminar el evento de los calendarios de Google Calendar manualmente.');
-                }
+                // Eliminar eventos de calendarios
+                eliminarEventosCalendario(id);
                 
+                alert('✅ Sesión eliminada correctamente junto con sus eventos de calendario.');
                 render();
             }
         };
@@ -4054,57 +3950,88 @@
         };
 
         // FUNCIONES DE CALENDARIOS
-        window.guardarCalendarios = function() {
-            const calendarios = {
-                sesiones: document.getElementById('calSesiones').value.trim(),
-                timoneles: document.getElementById('calTimoneles').value.trim(),
-                auxiliares: document.getElementById('calAuxiliares').value.trim(),
-                zodiac: document.getElementById('calZodiac').value.trim()
-            };
-            DB.set('calendarios', calendarios);
-            cerrarConfiguracionCalendarios();
-            alert('✓ IDs de calendarios guardados correctamente');
-            render();
-        };
-
-        window.mostrarConfiguracionCalendarios = function() {
-            document.getElementById('modalConfigCalendarios').classList.remove('hidden');
-        };
-
-        window.cerrarConfiguracionCalendarios = function() {
-            document.getElementById('modalConfigCalendarios').classList.add('hidden');
-        };
-
-        window.mostrarCalendario = function(tipo, calendarId) {
-            // Mostrar calendario en pantalla completa
-            const calendarioDiv = document.getElementById('calendarioEmbebido');
-            const iframe = document.getElementById('iframeCalendario');
-            const titulo = document.getElementById('tituloCalendario');
+        // Funciones para calendario interno
+        window.mostrarCalendarioInterno = function(tipo) {
+            const eventosCalendario = DB.get('eventosCalendario') || [];
             
-            // Establecer título según el tipo
+            // Filtrar eventos por tipo
+            const eventosFiltrados = eventosCalendario.filter(e => e.tipo === tipo);
+            
+            // Ordenar por fecha
+            eventosFiltrados.sort((a, b) => {
+                const fechaA = new Date(a.fecha + ' ' + a.horario);
+                const fechaB = new Date(b.fecha + ' ' + b.horario);
+                return fechaA - fechaB;
+            });
+            
             const titulos = {
                 'sesiones': '📅 Calendario de Sesiones',
                 'timoneles': '👤 Calendario de Timoneles',
                 'auxiliares': '🆘 Calendario de Auxiliares',
                 'zodiac': '🚤 Calendario de Zodiac'
             };
-            titulo.textContent = titulos[tipo] || '📅 Calendario';
             
-            // URL completa del calendario embebido con modo mensual
-            const calendarUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=Europe/Madrid&mode=MONTH&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&showTz=0`;
-            iframe.src = calendarUrl;
+            const colores = {
+                'sesiones': '#3b82f6',
+                'timoneles': '#10b981',
+                'auxiliares': '#f59e0b',
+                'zodiac': '#8b5cf6'
+            };
             
-            calendarioDiv.classList.remove('hidden');
+            document.getElementById('tituloCalendarioInterno').textContent = titulos[tipo] || 'Calendario';
+            
+            const contenido = document.getElementById('contenidoCalendarioInterno');
+            
+            if (eventosFiltrados.length === 0) {
+                contenido.innerHTML = `
+                    <div class="text-center py-16">
+                        <div class="text-7xl mb-4">📅</div>
+                        <p class="text-2xl text-gray-500">No hay eventos en este calendario</p>
+                    </div>
+                `;
+            } else {
+                contenido.innerHTML = `
+                    <div class="space-y-3">
+                        ${eventosFiltrados.map(e => `
+                            <div class="border-l-4 p-4 rounded-lg hover:bg-gray-50" style="border-color: ${colores[tipo]}">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h4 class="text-xl font-bold mb-1">${e.titulo}</h4>
+                                        <p class="text-gray-600 mb-2">
+                                            📅 ${new Date(e.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} 
+                                            | ⏰ ${e.horario}
+                                        </p>
+                                        ${e.personal ? `<p class="text-sm font-bold text-gray-700 mb-2">👤 ${e.personal}</p>` : ''}
+                                        <div class="text-sm text-gray-700 whitespace-pre-line">${e.descripcion}</div>
+                                    </div>
+                                    <button onclick="verDetalleEvento(${e.sesionId}); cerrarCalendarioInterno();" 
+                                        class="ml-4 bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold hover:bg-blue-200">
+                                        Ver Sesión
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('modalCalendarioInterno').classList.remove('hidden');
+        };
+        
+        window.cerrarCalendarioInterno = function() {
+            document.getElementById('modalCalendarioInterno').classList.add('hidden');
+        };
+        
+        window.verDetalleEvento = function(sesionId) {
+            // Cambiar a vista de sesiones y mostrar detalles
+            currentView = 'sesiones';
+            render();
+            // Después del render, abrir el modal de participantes
+            setTimeout(() => {
+                verParticipantes(sesionId);
+            }, 100);
         };
 
-        window.ocultarCalendario = function() {
-            const calendarioDiv = document.getElementById('calendarioEmbebido');
-            calendarioDiv.classList.add('hidden');
-            
-            // Limpiar iframe
-            const iframe = document.getElementById('iframeCalendario');
-            iframe.src = '';
-        };
 
 
         function generarICS(eventos, nombre) {
