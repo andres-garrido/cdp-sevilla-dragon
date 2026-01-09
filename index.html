@@ -881,18 +881,25 @@
                             </div>
                             <div class="grid md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-bold mb-2">Barco Asignado</label>
-                                    <select id="sBarco" required class="w-full px-4 py-3 border-2 rounded-lg">
-                                        <option value="">Seleccionar barco...</option>
+                                    <label class="block text-sm font-bold mb-2">Barcos Asignados</label>
+                                    <select id="sBarco" multiple required class="w-full px-4 py-3 border-2 rounded-lg" style="min-height: 120px;" onchange="verificarBarcosYTimoneles()">
+                                        <option value="">Seleccionar barcos (mantén Ctrl/Cmd para múltiple)...</option>
                                     </select>
+                                    <p class="text-xs text-gray-600 mt-1">Mantén Ctrl (Cmd en Mac) para seleccionar múltiples barcos</p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-bold mb-2">Timonel Asignado</label>
-                                    <select id="sTimonel" required class="w-full px-4 py-3 border-2 rounded-lg">
-                                        <option value="">Seleccionar timonel...</option>
+                                    <label class="block text-sm font-bold mb-2">Timoneles Asignados</label>
+                                    <select id="sTimonel" multiple required class="w-full px-4 py-3 border-2 rounded-lg" style="min-height: 120px;" onchange="verificarBarcosYTimoneles()">
+                                        <option value="">Seleccionar timoneles (mantén Ctrl/Cmd para múltiple)...</option>
                                         ${timoneles.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('')}
                                     </select>
+                                    <p class="text-xs text-gray-600 mt-1">Mantén Ctrl (Cmd en Mac) para seleccionar múltiples timoneles</p>
                                 </div>
+                            </div>
+                            
+                            <div id="alertaBarcosTimoneles" class="hidden bg-yellow-100 border-2 border-yellow-500 text-yellow-700 px-4 py-3 rounded mb-4">
+                                <p class="font-bold">⚠️ Número de barcos y timoneles no coincide</p>
+                                <p class="text-sm">Debes seleccionar el mismo número de barcos y timoneles</p>
                             </div>
                             
                             <div>
@@ -977,15 +984,23 @@
                                     const fechaSesion = new Date(s.fecha);
                                     const esPasadaSinCerrar = fechaSesion < hoyInicio && !s.cerrada;
                                     
-                                    const timonel = users.find(u => u.id === s.timonelId);
+                                    // Obtener arrays de barcos y timoneles (nuevo formato) o individual (formato antiguo)
+                                    const barcosIds = s.barcoIds || (s.barcoId ? [s.barcoId] : []);
+                                    const timonelesIds = s.timonelIds || (s.timonelId ? [s.timonelId] : []);
+                                    
+                                    const barcos = DB.get('barcos') || [];
+                                    const barcosAsignados = barcosIds.map(id => barcos.find(b => b.id === id)).filter(Boolean);
+                                    
+                                    const timoneles = timonelesIds.map(id => users.find(u => u.id === id)).filter(Boolean);
+                                    const timonel = timoneles[0] || null; // Primer timonel para compatibilidad
+                                    
                                     const timonel2 = s.timonel2Id ? users.find(u => u.id === s.timonel2Id) : null;
                                     const auxiliares = DB.get('auxiliares') || [];
                                     const zodiac = DB.get('zodiac') || [];
-                                    const barcos = DB.get('barcos') || [];
                                     const auxiliar = auxiliares.find(a => a.id === s.auxiliarId);
                                     const auxiliar2 = s.auxiliar2Id ? auxiliares.find(a => a.id === s.auxiliar2Id) : null;
                                     const zodiacPersona = zodiac.find(z => z.id === s.zodiacId);
-                                    const barco = barcos.find(b => b.id === s.barcoId);
+                                    const barco = barcosAsignados[0] || null; // Primer barco para compatibilidad
                                     const asist = DB.get('asistencias') || [];
                                     const tieneAsistencia = asist.some(a => a.sesionId === s.id);
                                     const tieneAuxiliarYZodiac = auxiliar && zodiacPersona;
@@ -1019,14 +1034,17 @@
                                                 
                                                 <!-- Fila 3: Barco y Personal asignado -->
                                                 <div class="grid grid-cols-1 gap-2 mb-2">
-                                                    ${barco ? `
+                                                    ${barcosAsignados.length > 0 ? `
                                                         <div>
-                                                            <p class="text-gray-700"><strong>🛶 Barco:</strong> ${barco.nombre}</p>
+                                                            <p class="text-gray-700"><strong>🛶 Barco${barcosAsignados.length > 1 ? 's' : ''}:</strong> ${barcosAsignados.map(b => b.nombre).join(', ')}</p>
                                                         </div>
                                                     ` : ''}
-                                                    <div>
-                                                        <p class="text-gray-700"><strong>👤 Timonel${timonel2 ? 'es' : ''}:</strong> ${timonel ? timonel.nombre : 'Sin asignar'}${timonel2 ? ` + ${timonel2.nombre}` : ''}</p>
-                                                    </div>
+                                                    ${timoneles.length > 0 || timonel2 ? `
+                                                        <div>
+                                                            <p class="text-gray-700"><strong>👤 Timonel${timoneles.length > 1 || timonel2 ? 'es' : ''}:</strong> 
+                                                            ${timoneles.map(t => t.nombre).join(', ')}${timonel2 ? (timoneles.length > 0 ? ', ' : '') + timonel2.nombre : ''}</p>
+                                                        </div>
+                                                    ` : ''}
                                                     ${auxiliar || auxiliar2 ? `
                                                         <div>
                                                             <p class="text-gray-700"><strong>🆘 Auxiliar${auxiliar2 ? 'es' : ''}:</strong> ${auxiliar ? auxiliar.nombre : '-'}${auxiliar2 ? ` + ${auxiliar2.nombre}` : ''}</p>
@@ -1158,7 +1176,12 @@
             // Separar sesiones en tres grupos
             const sesionesHoy = todasMisSesiones.filter(s => s.fecha === hoy);
             const sesionesFuturas = todasMisSesiones.filter(s => s.fecha > hoy).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horario.localeCompare(b.horario));
-            const sesionesPasadas = todasMisSesiones.filter(s => s.fecha < hoy).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.horario.localeCompare(a.horario));
+            // Solo mostrar en sesiones pasadas las que están cerradas
+            const sesionesPasadas = todasMisSesiones.filter(s => s.fecha < hoy && s.cerrada).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.horario.localeCompare(a.horario));
+            // Las sesiones pasadas no cerradas se quedan en futuras
+            const sesionesPasadasNoCerradas = todasMisSesiones.filter(s => s.fecha < hoy && !s.cerrada).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horario.localeCompare(b.horario));
+            // Combinar sesiones pasadas no cerradas con las futuras
+            const sesionesFuturasConPendientes = [...sesionesPasadasNoCerradas, ...sesionesFuturas];
 
             const renderSesion = (s, esHoy) => {
                 const asist = DB.get('asistencias') || [];
@@ -1259,11 +1282,11 @@
                         <p class="text-gray-600">Sesiones donde estás asignado en cualquier rol (Timonel, Auxiliar o Zodiac)</p>
                     </div>
                     
-                    ${sesionesFuturas.length > 0 ? `
+                    ${sesionesFuturasConPendientes.length > 0 ? `
                         <div class="mb-8">
-                            <h3 class="text-2xl font-bold mb-4 text-green-600">📅 Sesiones Futuras (${sesionesFuturas.length})</h3>
+                            <h3 class="text-2xl font-bold mb-4 text-green-600">📅 Sesiones Futuras (${sesionesFuturasConPendientes.length})</h3>
                             <div class="grid md:grid-cols-2 gap-6">
-                                ${sesionesFuturas.map(s => renderSesion(s, false)).join('')}
+                                ${sesionesFuturasConPendientes.map(s => renderSesion(s, false)).join('')}
                             </div>
                         </div>
                     ` : ''}
@@ -2683,6 +2706,25 @@
             verificarPersonalAdicional();
         };
 
+        window.verificarBarcosYTimoneles = function() {
+            const selectBarco = document.getElementById('sBarco');
+            const selectTimonel = document.getElementById('sTimonel');
+            const alerta = document.getElementById('alertaBarcosTimoneles');
+            
+            // Obtener opciones seleccionadas (excluyendo la opción placeholder)
+            const barcosSeleccionados = Array.from(selectBarco.selectedOptions).filter(opt => opt.value !== '');
+            const timonelesSeleccionados = Array.from(selectTimonel.selectedOptions).filter(opt => opt.value !== '');
+            
+            // Verificar que el número coincida
+            if (barcosSeleccionados.length !== timonelesSeleccionados.length) {
+                alerta.classList.remove('hidden');
+                return false;
+            } else {
+                alerta.classList.add('hidden');
+                return true;
+            }
+        };
+
         window.verificarPersonalAdicional = function() {
             const numParticipantes = participantesSesion.length;
             const tipoSesion = document.getElementById('sTipo').value;
@@ -2845,15 +2887,33 @@
             document.getElementById('sRepresentante').value = sesion.representante || '';
             document.getElementById('sTelefonoRepresentante').value = sesion.telefonoRepresentante || '';
             document.getElementById('sTipo').value = sesion.tipo;
-            document.getElementById('sTimonel').value = sesion.timonelId;
             
-            // Cargar barcos y seleccionar el actual
+            // Cargar barcos y seleccionar los actuales
             const barcos = DB.get('barcos') || [];
-            document.getElementById('sBarco').innerHTML = '<option value="">Seleccionar barco...</option>' +
+            const users = DB.get('users') || [];
+            const timoneles = users.filter(u => u.role === 'timonel');
+            
+            document.getElementById('sBarco').innerHTML = '<option value="">Seleccionar barcos (mantén Ctrl/Cmd para múltiple)...</option>' +
                 barcos.map(b => `<option value="${b.id}">${b.nombre}</option>`).join('');
-            if (sesion.barcoId) {
-                document.getElementById('sBarco').value = sesion.barcoId;
-            }
+            
+            document.getElementById('sTimonel').innerHTML = '<option value="">Seleccionar timoneles (mantén Ctrl/Cmd para múltiple)...</option>' +
+                timoneles.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+            
+            // Seleccionar barcos (array o individual para compatibilidad)
+            const barcosIds = sesion.barcoIds || (sesion.barcoId ? [sesion.barcoId] : []);
+            Array.from(document.getElementById('sBarco').options).forEach(opt => {
+                if (barcosIds.includes(parseInt(opt.value))) {
+                    opt.selected = true;
+                }
+            });
+            
+            // Seleccionar timoneles (array o individual para compatibilidad)
+            const timonelesIds = sesion.timonelIds || (sesion.timonelId ? [sesion.timonelId] : []);
+            Array.from(document.getElementById('sTimonel').options).forEach(opt => {
+                if (timonelesIds.includes(parseInt(opt.value))) {
+                    opt.selected = true;
+                }
+            });
             
             participantesSesion = [...sesion.participantes];
             actualizarCamposSesion();
@@ -3243,6 +3303,40 @@
         window.guardarSesion = function(e) {
             e.preventDefault();
             
+            const fecha = document.getElementById('sFecha').value;
+            const horario = document.getElementById('sHorario').value;
+            
+            // VALIDACIÓN 1: No permitir sesiones con fecha/hora pasada (solo al crear, no al editar)
+            if (!editingSesionId) {
+                const fechaHoraSesion = new Date(fecha + 'T' + horario);
+                const ahora = new Date();
+                
+                if (fechaHoraSesion < ahora) {
+                    alert('⚠️ No se puede crear una sesión con fecha y hora anterior a la actual.\n\nFecha/hora seleccionada: ' + 
+                        fechaHoraSesion.toLocaleString('es-ES') + '\n' +
+                        'Fecha/hora actual: ' + ahora.toLocaleString('es-ES'));
+                    return;
+                }
+            }
+            
+            // VALIDACIÓN 2: Verificar que barcos y timoneles coincidan
+            const selectBarco = document.getElementById('sBarco');
+            const selectTimonel = document.getElementById('sTimonel');
+            const barcosSeleccionados = Array.from(selectBarco.selectedOptions).filter(opt => opt.value !== '').map(opt => parseInt(opt.value));
+            const timonelesSeleccionados = Array.from(selectTimonel.selectedOptions).filter(opt => opt.value !== '').map(opt => parseInt(opt.value));
+            
+            if (barcosSeleccionados.length !== timonelesSeleccionados.length) {
+                alert('⚠️ Debes seleccionar el mismo número de barcos y timoneles.\n\n' +
+                    'Barcos seleccionados: ' + barcosSeleccionados.length + '\n' +
+                    'Timoneles seleccionados: ' + timonelesSeleccionados.length);
+                return;
+            }
+            
+            if (barcosSeleccionados.length === 0) {
+                alert('⚠️ Debes seleccionar al menos un barco y un timonel');
+                return;
+            }
+            
             // Solo validar formato de fechas si están presentes
             for (let p of participantesSesion) {
                 if (p.fechaNacimiento && p.fechaNacimiento.trim() !== '') {
@@ -3285,14 +3379,14 @@
                 }
             });
             
-            const fecha = document.getElementById('sFecha').value;
-            const horario = document.getElementById('sHorario').value;
-            const timonelIdValue = document.getElementById('sTimonel').value;
-            const timonelId = timonelIdValue ? parseInt(timonelIdValue) : null;
+            const tipoSesion = document.getElementById('sTipo').value;
             
-            // VALIDACIÓN: Si hay participantes y no es tipo Tierra, el timonel es obligatorio
-            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && !timonelId) {
-                alert('⚠️ Debes asignar un timonel cuando hay participantes registrados');
+            // Ya tenemos barcosSeleccionados y timonelesSeleccionados de arriba
+            // Ya tenemos fecha y horario de arriba
+            
+            // VALIDACIÓN: Si hay participantes y no es tipo Tierra, debe haber al menos un timonel
+            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && timonelesSeleccionados.length === 0) {
+                alert('⚠️ Debes asignar al menos un timonel cuando hay participantes registrados');
                 return;
             }
             
@@ -3310,10 +3404,11 @@
             
             const personasAsignadas = [];
             
-            if (timonelId) {
+            // Añadir todos los timoneles seleccionados
+            timonelesSeleccionados.forEach((timonelId, index) => {
                 const t = users.find(u => u.id === timonelId);
-                if (t) personasAsignadas.push({username: t.username, nombre: t.nombre, rol: 'Timonel'});
-            }
+                if (t) personasAsignadas.push({username: t.username, nombre: t.nombre, rol: `Timonel ${index + 1}`});
+            });
             if (timonel2Id) {
                 const t2 = users.find(u => u.id === timonel2Id);
                 if (t2) personasAsignadas.push({username: t2.username, nombre: t2.nombre, rol: 'Timonel 2'});
@@ -3452,12 +3547,14 @@
                 representante: document.getElementById('sRepresentante').value,
                 telefonoRepresentante: document.getElementById('sTelefonoRepresentante').value,
                 tipo: tipoSesion,
-                participantes: [...participantesSesion]
+                participantes: [...participantesSesion],
+                barcoIds: barcosSeleccionados, // Array de IDs de barcos
+                timonelIds: timonelesSeleccionados // Array de IDs de timoneles
             };
             
-            // Añadir timonel y barco solo si están presentes
-            if (timonelId) sesionData.timonelId = timonelId;
-            if (barcoId) sesionData.barcoId = barcoId;
+            // Mantener compatibilidad con código antiguo (primer barco y primer timonel)
+            if (barcosSeleccionados.length > 0) sesionData.barcoId = barcosSeleccionados[0];
+            if (timonelesSeleccionados.length > 0) sesionData.timonelId = timonelesSeleccionados[0];
             
             // Añadir zodiac si está seleccionado (para todos los tipos)
             if (zodiacId) sesionData.zodiacId = zodiacId;
