@@ -3455,18 +3455,33 @@
             );
             
             // Verificar timoneles (solo si no es tipo Tierra)
-            if (tipoSesion !== 'Tierra' && timonelId) {
-                const timonelesDuplicados = sesionesEnMismaHora.filter(s => 
-                    s.timonelId === timonelId || 
-                    s.timonel2Id === timonelId ||
-                    (timonel2Id && (s.timonelId === timonel2Id || s.timonel2Id === timonel2Id))
-                );
+            if (tipoSesion !== 'Tierra' && timonelesSeleccionados.length > 0) {
+                for (const timonelId of timonelesSeleccionados) {
+                    const timonelesDuplicados = sesionesEnMismaHora.filter(s => {
+                        // Verificar en timonelIds (nuevo formato) o timonelId/timonel2Id (formato antiguo)
+                        const timonelesEnSesion = s.timonelIds || [s.timonelId, s.timonel2Id].filter(Boolean);
+                        return timonelesEnSesion.includes(timonelId);
+                    });
+                    
+                    if (timonelesDuplicados.length > 0) {
+                        const timonel = users.find(u => u.id === timonelId);
+                        alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
+                        return;
+                    }
+                }
                 
-                if (timonelesDuplicados.length > 0) {
-                    const users = DB.get('users') || [];
-                    const timonel = users.find(u => u.id === timonelId);
-                    alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
-                    return;
+                // Verificar timonel2 si existe
+                if (timonel2Id) {
+                    const timonelesDuplicados = sesionesEnMismaHora.filter(s => {
+                        const timonelesEnSesion = s.timonelIds || [s.timonelId, s.timonel2Id].filter(Boolean);
+                        return timonelesEnSesion.includes(timonel2Id);
+                    });
+                    
+                    if (timonelesDuplicados.length > 0) {
+                        const timonel = users.find(u => u.id === timonel2Id);
+                        alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
+                        return;
+                    }
                 }
             }
             
@@ -3478,31 +3493,27 @@
                 );
                 
                 if (auxiliaresDuplicados.length > 0) {
-                    const auxiliares = DB.get('auxiliares') || [];
                     const auxiliarDup = auxiliares.find(a => a.id === auxiliarId || a.id === auxiliar2Id);
                     alert(`⚠️ El auxiliar ${auxiliarDup ? auxiliarDup.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
                     return;
                 }
             }
-            
-            // Validar barco seleccionado (solo si tipo no es Tierra Y hay participantes)
-            const barcoIdValue = document.getElementById('sBarco').value;
-            const barcoId = barcoIdValue ? parseInt(barcoIdValue) : null;
-            
-            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && !barcoId) {
-                alert('⚠️ Debes seleccionar un barco cuando hay participantes registrados');
-                return;
-            }
 
-            // Validar que el barco no esté ocupado en la misma fecha y hora (solo si tipo no es Tierra)
-            if (tipoSesion !== 'Tierra' && barcoId) {
-                const barcoOcupado = sesionesEnMismaHora.find(s => s.barcoId === barcoId);
-                
-                if (barcoOcupado) {
-                    const barcos = DB.get('barcos') || [];
-                    const barco = barcos.find(b => b.id === barcoId);
-                    alert(`⚠️ El barco "${barco ? barco.nombre : ''}" ya está asignado a otra sesión el ${new Date(fecha).toLocaleDateString('es-ES')} a las ${horario}`);
-                    return;
+            // Validar que los barcos no estén ocupados en la misma fecha y hora (solo si tipo no es Tierra)
+            if (tipoSesion !== 'Tierra' && barcosSeleccionados.length > 0) {
+                for (const barcoId of barcosSeleccionados) {
+                    const barcoOcupado = sesionesEnMismaHora.find(s => {
+                        // Verificar en barcoIds (nuevo formato) o barcoId (formato antiguo)
+                        const barcosEnSesion = s.barcoIds || (s.barcoId ? [s.barcoId] : []);
+                        return barcosEnSesion.includes(barcoId);
+                    });
+                    
+                    if (barcoOcupado) {
+                        const barcos = DB.get('barcos') || [];
+                        const barco = barcos.find(b => b.id === barcoId);
+                        alert(`⚠️ El barco "${barco ? barco.nombre : ''}" ya está asignado a otra sesión el ${new Date(fecha).toLocaleDateString('es-ES')} a las ${horario}`);
+                        return;
+                    }
                 }
             }
             
@@ -3515,11 +3526,17 @@
                 sesionAnterior = data.find(s => s.id === editingSesionId);
                 
                 if (sesionAnterior) {
-                    // Detectar personal desasignado
-                    if (sesionAnterior.timonelId && sesionAnterior.timonelId !== timonelId) {
-                        const t = users.find(u => u.id === sesionAnterior.timonelId);
-                        if (t && t.telefono) personalDesasignado.push({ persona: t, rol: 'Timonel' });
-                    }
+                    // Obtener timoneles anteriores (array o individual)
+                    const timonelesAnteriores = sesionAnterior.timonelIds || (sesionAnterior.timonelId ? [sesionAnterior.timonelId] : []);
+                    
+                    // Detectar timoneles desasignados
+                    timonelesAnteriores.forEach(timonelIdAnterior => {
+                        if (!timonelesSeleccionados.includes(timonelIdAnterior)) {
+                            const t = users.find(u => u.id === timonelIdAnterior);
+                            if (t && t.telefono) personalDesasignado.push({ persona: t, rol: 'Timonel' });
+                        }
+                    });
+                    
                     if (sesionAnterior.timonel2Id && sesionAnterior.timonel2Id !== timonel2Id) {
                         const t2 = users.find(u => u.id === sesionAnterior.timonel2Id);
                         if (t2 && t2.telefono) personalDesasignado.push({ persona: t2, rol: 'Timonel 2' });
