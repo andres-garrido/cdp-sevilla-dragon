@@ -406,6 +406,8 @@
                     content = renderSesiones();
                 } else if (currentView === 'calendarios') {
                     content = renderCalendarios();
+                } else if (currentView === 'estadisticas') {
+                    content = renderEstadisticas();
                 } else if (currentView === 'informes') {
                     content = renderInformes();
                 } else if (currentView === 'incidencias') {
@@ -452,13 +454,14 @@
                         ${currentUser.role === 'admin' ? `
                             <nav class="bg-blue-800 border-t border-blue-700">
                                 <div class="container mx-auto px-4 flex">
-                                    <button onclick="changeView('dashboard')" class="px-6 py-3 ${currentView === 'dashboard' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">📊 Panel</button>
+                                    <button onclick="changeView('dashboard')" class="px-6 py-3 ${currentView === 'dashboard' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🏠 Panel</button>
                                     <button onclick="changeView('timoneles')" class="px-6 py-3 ${currentView === 'timoneles' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">👤 Timoneles</button>
                                     <button onclick="changeView('auxiliares')" class="px-6 py-3 ${currentView === 'auxiliares' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🆘 Auxiliares</button>
                                     <button onclick="changeView('zodiac')" class="px-6 py-3 ${currentView === 'zodiac' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🚤 Zodiac</button>
                                     <button onclick="changeView('barcos')" class="px-6 py-3 ${currentView === 'barcos' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">⛵ Barcos</button>
                                     <button onclick="changeView('sesiones')" class="px-6 py-3 ${currentView === 'sesiones' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">📅 Sesiones</button>
                                     <button onclick="changeView('calendarios')" class="px-6 py-3 ${currentView === 'calendarios' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">📆 Calendarios</button>
+                                    <button onclick="changeView('estadisticas')" class="px-6 py-3 ${currentView === 'estadisticas' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">📊 Estadísticas</button>
                                     <button onclick="changeView('informes')" class="px-6 py-3 ${currentView === 'informes' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">📈 Informes</button>
                                     <button onclick="changeView('incidencias')" class="px-6 py-3 ${currentView === 'incidencias' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">⚠️ Incidencias</button>
                                 </div>
@@ -1578,6 +1581,117 @@
                                 <button onclick="cerrarModal('modalIncidencia')" class="text-4xl hover:text-red-600">&times;</button>
                             </div>
                             <div id="contenidoIncidencia"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ESTADÍSTICAS
+        function renderEstadisticas() {
+            const sesiones = DB.get('sesiones') || [];
+            const users = DB.get('users') || [];
+            const timoneles = users.filter(u => u.role === 'timonel');
+            
+            // Definir categorías a analizar
+            const categorias = ['Veteranos', 'Iniciación', 'Formación', 'Inclusivo', 'Paradragón', 'Once', 'Mujer', 'Menores', 'Terapéutico', 'Empresa', 'Tierra'];
+            
+            // Calcular estadísticas por categoría
+            const estadisticasCategorias = categorias.map(categoria => {
+                const sesionesCat = sesiones.filter(s => s.tipo === categoria);
+                const totalSesiones = sesionesCat.length;
+                const totalParticipantes = sesionesCat.reduce((sum, s) => sum + (s.participantes?.length || 0), 0);
+                const promedioParticipantes = totalSesiones > 0 ? (totalParticipantes / totalSesiones).toFixed(1) : 0;
+                
+                return {
+                    categoria,
+                    totalSesiones,
+                    totalParticipantes,
+                    promedioParticipantes
+                };
+            });
+            
+            // Calcular estadísticas de timoneles
+            const estadisticasTimoneles = timoneles.map(timonel => {
+                // Buscar sesiones donde este timonel está asignado
+                const sesionesTim = sesiones.filter(s => {
+                    const timonelesIds = s.timonelIds || (s.timonelId ? [s.timonelId] : []);
+                    return timonelesIds.includes(timonel.id) || s.timonel2Id === timonel.id;
+                });
+                
+                const totalSesiones = sesionesTim.length;
+                const totalParticipantes = sesionesTim.reduce((sum, s) => sum + (s.participantes?.length || 0), 0);
+                const promedioParticipantes = totalSesiones > 0 ? (totalParticipantes / totalSesiones).toFixed(1) : 0;
+                
+                return {
+                    nombre: timonel.nombre,
+                    totalSesiones,
+                    totalParticipantes,
+                    promedioParticipantes
+                };
+            }).sort((a, b) => b.totalSesiones - a.totalSesiones);
+            
+            return `
+                <div class="container mx-auto px-4 py-8">
+                    <h2 class="text-4xl font-bold mb-6">Estadísticas del Club</h2>
+                    
+                    <!-- Estadísticas por Categoría -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h3 class="text-2xl font-bold mb-4">📊 Estadísticas por Categoría</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="px-4 py-3 text-left font-bold">Categoría</th>
+                                        <th class="px-4 py-3 text-center font-bold">Total Sesiones</th>
+                                        <th class="px-4 py-3 text-center font-bold">Total Participantes</th>
+                                        <th class="px-4 py-3 text-center font-bold">Promedio por Sesión</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${estadisticasCategorias.map((stat, index) => `
+                                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                            <td class="px-4 py-3 font-semibold">${stat.categoria}</td>
+                                            <td class="px-4 py-3 text-center">${stat.totalSesiones}</td>
+                                            <td class="px-4 py-3 text-center">${stat.totalParticipantes}</td>
+                                            <td class="px-4 py-3 text-center font-bold text-blue-600">${stat.promedioParticipantes}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Estadísticas de Timoneles -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold mb-4">👤 Estadísticas de Timoneles</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="px-4 py-3 text-left font-bold">Timonel</th>
+                                        <th class="px-4 py-3 text-center font-bold">Total Sesiones</th>
+                                        <th class="px-4 py-3 text-center font-bold">Total Participantes</th>
+                                        <th class="px-4 py-3 text-center font-bold">Promedio por Sesión</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${estadisticasTimoneles.length === 0 ? `
+                                        <tr>
+                                            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                                                No hay datos de timoneles disponibles
+                                            </td>
+                                        </tr>
+                                    ` : estadisticasTimoneles.map((stat, index) => `
+                                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                            <td class="px-4 py-3 font-semibold">${stat.nombre}</td>
+                                            <td class="px-4 py-3 text-center">${stat.totalSesiones}</td>
+                                            <td class="px-4 py-3 text-center">${stat.totalParticipantes}</td>
+                                            <td class="px-4 py-3 text-center font-bold text-blue-600">${stat.promedioParticipantes}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
