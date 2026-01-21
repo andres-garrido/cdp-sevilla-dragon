@@ -1588,115 +1588,267 @@
         }
 
         // ESTADÍSTICAS
+        let vistaEstadistica = 'palistas'; // por defecto
+        
         function renderEstadisticas() {
             const sesiones = DB.get('sesiones') || [];
             const users = DB.get('users') || [];
-            const timoneles = users.filter(u => u.role === 'timonel');
+            const auxiliares = DB.get('auxiliares') || [];
+            const zodiac = DB.get('zodiac') || [];
             
-            // Definir categorías a analizar
-            const categorias = ['Veteranos', 'Iniciación', 'Formación', 'Inclusivo', 'Paradragón', 'Once', 'Mujer', 'Menores', 'Terapéutico', 'Empresa', 'Tierra'];
+            let contenidoEstadistica = '';
             
-            // Calcular estadísticas por categoría
-            const estadisticasCategorias = categorias.map(categoria => {
-                const sesionesCat = sesiones.filter(s => s.tipo === categoria);
-                const totalSesiones = sesionesCat.length;
-                const totalParticipantes = sesionesCat.reduce((sum, s) => sum + (s.participantes?.length || 0), 0);
-                const promedioParticipantes = totalSesiones > 0 ? (totalParticipantes / totalSesiones).toFixed(1) : 0;
-                
-                return {
-                    categoria,
-                    totalSesiones,
-                    totalParticipantes,
-                    promedioParticipantes
-                };
-            });
-            
-            // Calcular estadísticas de timoneles
-            const estadisticasTimoneles = timoneles.map(timonel => {
-                // Buscar sesiones donde este timonel está asignado
-                const sesionesTim = sesiones.filter(s => {
-                    const timonelesIds = s.timonelIds || (s.timonelId ? [s.timonelId] : []);
-                    return timonelesIds.includes(timonel.id) || s.timonel2Id === timonel.id;
+            if (vistaEstadistica === 'palistas') {
+                // Contar asistencias de palistas
+                const contadorPalistas = {};
+                sesiones.forEach(s => {
+                    if (s.participantes && s.participantes.length > 0) {
+                        s.participantes.forEach(p => {
+                            const nombre = p.nombre || 'Sin nombre';
+                            if (!contadorPalistas[nombre]) {
+                                contadorPalistas[nombre] = 0;
+                            }
+                            contadorPalistas[nombre]++;
+                        });
+                    }
                 });
                 
-                const totalSesiones = sesionesTim.length;
-                const totalParticipantes = sesionesTim.reduce((sum, s) => sum + (s.participantes?.length || 0), 0);
-                const promedioParticipantes = totalSesiones > 0 ? (totalParticipantes / totalSesiones).toFixed(1) : 0;
+                // Convertir a array y ordenar
+                const listaPalistas = Object.entries(contadorPalistas)
+                    .map(([nombre, asistencias]) => ({ nombre, asistencias }))
+                    .sort((a, b) => b.asistencias - a.asistencias);
                 
-                return {
-                    nombre: timonel.nombre,
-                    totalSesiones,
-                    totalParticipantes,
-                    promedioParticipantes
-                };
-            }).sort((a, b) => b.totalSesiones - a.totalSesiones);
+                contenidoEstadistica = `
+                    <h3 class="text-2xl font-bold mb-4">🚣 Estadísticas de Palistas</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="px-4 py-3 text-left font-bold">Posición</th>
+                                    <th class="px-4 py-3 text-left font-bold">Nombre</th>
+                                    <th class="px-4 py-3 text-center font-bold">Asistencias</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${listaPalistas.length === 0 ? `
+                                    <tr>
+                                        <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                                            No hay datos de palistas disponibles
+                                        </td>
+                                    </tr>
+                                ` : listaPalistas.map((palista, index) => `
+                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                        <td class="px-4 py-3 font-bold text-blue-600">${index + 1}</td>
+                                        <td class="px-4 py-3">${palista.nombre}</td>
+                                        <td class="px-4 py-3 text-center font-bold">${palista.asistencias}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else if (vistaEstadistica === 'timones') {
+                // Contar sesiones de timoneles
+                const timoneles = users.filter(u => u.role === 'timonel');
+                const listaTimones = timoneles.map(timonel => {
+                    const sesionesTim = sesiones.filter(s => {
+                        const timonelesIds = s.timonelIds || (s.timonelId ? [s.timonelId] : []);
+                        return timonelesIds.includes(timonel.id) || s.timonel2Id === timonel.id;
+                    });
+                    return {
+                        nombre: timonel.nombre,
+                        sesiones: sesionesTim.length
+                    };
+                }).sort((a, b) => b.sesiones - a.sesiones);
+                
+                contenidoEstadistica = `
+                    <h3 class="text-2xl font-bold mb-4">👤 Estadísticas de Timones</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="px-4 py-3 text-left font-bold">Posición</th>
+                                    <th class="px-4 py-3 text-left font-bold">Nombre</th>
+                                    <th class="px-4 py-3 text-center font-bold">Sesiones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${listaTimones.length === 0 ? `
+                                    <tr>
+                                        <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                                            No hay datos de timones disponibles
+                                        </td>
+                                    </tr>
+                                ` : listaTimones.map((timon, index) => `
+                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                        <td class="px-4 py-3 font-bold text-blue-600">${index + 1}</td>
+                                        <td class="px-4 py-3">${timon.nombre}</td>
+                                        <td class="px-4 py-3 text-center font-bold">${timon.sesiones}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else if (vistaEstadistica === 'auxiliares') {
+                // Contar sesiones de auxiliares
+                const listaAuxiliares = auxiliares.map(aux => {
+                    const sesionesAux = sesiones.filter(s => s.auxiliarId === aux.id || s.auxiliar2Id === aux.id);
+                    return {
+                        nombre: aux.nombre,
+                        sesiones: sesionesAux.length
+                    };
+                }).sort((a, b) => b.sesiones - a.sesiones);
+                
+                contenidoEstadistica = `
+                    <h3 class="text-2xl font-bold mb-4">🆘 Estadísticas de Auxiliares</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="px-4 py-3 text-left font-bold">Posición</th>
+                                    <th class="px-4 py-3 text-left font-bold">Nombre</th>
+                                    <th class="px-4 py-3 text-center font-bold">Sesiones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${listaAuxiliares.length === 0 ? `
+                                    <tr>
+                                        <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                                            No hay datos de auxiliares disponibles
+                                        </td>
+                                    </tr>
+                                ` : listaAuxiliares.map((aux, index) => `
+                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                        <td class="px-4 py-3 font-bold text-blue-600">${index + 1}</td>
+                                        <td class="px-4 py-3">${aux.nombre}</td>
+                                        <td class="px-4 py-3 text-center font-bold">${aux.sesiones}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else if (vistaEstadistica === 'zodiacs') {
+                // Contar sesiones de zodiacs
+                const listaZodiacs = zodiac.map(z => {
+                    const sesionesZod = sesiones.filter(s => s.zodiacId === z.id);
+                    return {
+                        nombre: z.nombre,
+                        sesiones: sesionesZod.length
+                    };
+                }).sort((a, b) => b.sesiones - a.sesiones);
+                
+                contenidoEstadistica = `
+                    <h3 class="text-2xl font-bold mb-4">🚤 Estadísticas de Zodiacs</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="px-4 py-3 text-left font-bold">Posición</th>
+                                    <th class="px-4 py-3 text-left font-bold">Nombre</th>
+                                    <th class="px-4 py-3 text-center font-bold">Sesiones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${listaZodiacs.length === 0 ? `
+                                    <tr>
+                                        <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                                            No hay datos de zodiacs disponibles
+                                        </td>
+                                    </tr>
+                                ` : listaZodiacs.map((zod, index) => `
+                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                        <td class="px-4 py-3 font-bold text-blue-600">${index + 1}</td>
+                                        <td class="px-4 py-3">${zod.nombre}</td>
+                                        <td class="px-4 py-3 text-center font-bold">${zod.sesiones}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else if (vistaEstadistica === 'categorias') {
+                // Estadísticas por categoría
+                const categorias = ['Veteranos', 'Iniciación', 'Formación', 'Inclusivo', 'Paradragón', 'Once', 'Mujer', 'Menores', 'Terapéutico', 'Empresa', 'Tierra'];
+                const estadisticasCategorias = categorias.map(categoria => {
+                    const sesionesCat = sesiones.filter(s => s.tipo === categoria);
+                    const totalSesiones = sesionesCat.length;
+                    const totalParticipantes = sesionesCat.reduce((sum, s) => sum + (s.participantes?.length || 0), 0);
+                    const promedioParticipantes = totalSesiones > 0 ? (totalParticipantes / totalSesiones).toFixed(1) : 0;
+                    
+                    return {
+                        categoria,
+                        totalSesiones,
+                        totalParticipantes,
+                        promedioParticipantes
+                    };
+                });
+                
+                contenidoEstadistica = `
+                    <h3 class="text-2xl font-bold mb-4">📊 Estadísticas por Categoría</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="px-4 py-3 text-left font-bold">Categoría</th>
+                                    <th class="px-4 py-3 text-center font-bold">Total Sesiones</th>
+                                    <th class="px-4 py-3 text-center font-bold">Total Participantes</th>
+                                    <th class="px-4 py-3 text-center font-bold">Promedio por Sesión</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${estadisticasCategorias.map((stat, index) => `
+                                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
+                                        <td class="px-4 py-3 font-semibold">${stat.categoria}</td>
+                                        <td class="px-4 py-3 text-center">${stat.totalSesiones}</td>
+                                        <td class="px-4 py-3 text-center">${stat.totalParticipantes}</td>
+                                        <td class="px-4 py-3 text-center font-bold text-blue-600">${stat.promedioParticipantes}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
             
             return `
                 <div class="container mx-auto px-4 py-8">
                     <h2 class="text-4xl font-bold mb-6">Estadísticas del Club</h2>
                     
-                    <!-- Estadísticas por Categoría -->
+                    <!-- Botones de selección -->
                     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                        <h3 class="text-2xl font-bold mb-4">📊 Estadísticas por Categoría</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="bg-gray-100">
-                                        <th class="px-4 py-3 text-left font-bold">Categoría</th>
-                                        <th class="px-4 py-3 text-center font-bold">Total Sesiones</th>
-                                        <th class="px-4 py-3 text-center font-bold">Total Participantes</th>
-                                        <th class="px-4 py-3 text-center font-bold">Promedio por Sesión</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${estadisticasCategorias.map((stat, index) => `
-                                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
-                                            <td class="px-4 py-3 font-semibold">${stat.categoria}</td>
-                                            <td class="px-4 py-3 text-center">${stat.totalSesiones}</td>
-                                            <td class="px-4 py-3 text-center">${stat.totalParticipantes}</td>
-                                            <td class="px-4 py-3 text-center font-bold text-blue-600">${stat.promedioParticipantes}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                        <div class="flex flex-wrap gap-3">
+                            <button onclick="cambiarVistaEstadistica('palistas')" class="px-6 py-3 rounded-lg font-bold ${vistaEstadistica === 'palistas' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                🚣 PALISTAS
+                            </button>
+                            <button onclick="cambiarVistaEstadistica('timones')" class="px-6 py-3 rounded-lg font-bold ${vistaEstadistica === 'timones' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                👤 TIMONES
+                            </button>
+                            <button onclick="cambiarVistaEstadistica('auxiliares')" class="px-6 py-3 rounded-lg font-bold ${vistaEstadistica === 'auxiliares' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                🆘 AUXILIARES
+                            </button>
+                            <button onclick="cambiarVistaEstadistica('zodiacs')" class="px-6 py-3 rounded-lg font-bold ${vistaEstadistica === 'zodiacs' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                🚤 ZODIACS
+                            </button>
+                            <button onclick="cambiarVistaEstadistica('categorias')" class="px-6 py-3 rounded-lg font-bold ${vistaEstadistica === 'categorias' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                📊 CATEGORÍAS
+                            </button>
                         </div>
                     </div>
                     
-                    <!-- Estadísticas de Timoneles -->
+                    <!-- Contenido de la estadística seleccionada -->
                     <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold mb-4">👤 Estadísticas de Timoneles</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="bg-gray-100">
-                                        <th class="px-4 py-3 text-left font-bold">Timonel</th>
-                                        <th class="px-4 py-3 text-center font-bold">Total Sesiones</th>
-                                        <th class="px-4 py-3 text-center font-bold">Total Participantes</th>
-                                        <th class="px-4 py-3 text-center font-bold">Promedio por Sesión</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${estadisticasTimoneles.length === 0 ? `
-                                        <tr>
-                                            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
-                                                No hay datos de timoneles disponibles
-                                            </td>
-                                        </tr>
-                                    ` : estadisticasTimoneles.map((stat, index) => `
-                                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
-                                            <td class="px-4 py-3 font-semibold">${stat.nombre}</td>
-                                            <td class="px-4 py-3 text-center">${stat.totalSesiones}</td>
-                                            <td class="px-4 py-3 text-center">${stat.totalParticipantes}</td>
-                                            <td class="px-4 py-3 text-center font-bold text-blue-600">${stat.promedioParticipantes}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
+                        ${contenidoEstadistica}
                     </div>
                 </div>
             `;
         }
+        
+        window.cambiarVistaEstadistica = function(vista) {
+            vistaEstadistica = vista;
+            render();
+        };
 
         // INFORMES
         function renderInformes() {
