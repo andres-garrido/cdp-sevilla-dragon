@@ -261,12 +261,12 @@
         let currentView = 'dashboard';
         let participantesSesion = [];
         let editingSesionId = null;
+        let configuracionRepeticion = null; // Para almacenar la configuración de sesiones repetitivas
         let editingTimonelId = null;
         let editingAuxiliarId = null;
         let editingZodiacId = null;
         let editingBarcoId = null;
         let reconocimientoVoz = null;
-        let configuracionRepeticion = null; // Configuración para sesiones repetitivas
 
         // Función para renderizar
         async function render() {
@@ -495,10 +495,10 @@
                         </div>
                     </div>
                     <div class="grid md:grid-cols-2 gap-6">
-                        <button onclick="mostrarConfiguracionRepeticion()" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-8 text-left hover:scale-105 transition">
+                        <button onclick="mostrarFormularioSesionesRepetitivas()" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-8 text-left hover:scale-105 transition">
                             <div class="text-6xl mb-3">🔄</div>
                             <h3 class="text-2xl font-bold">Gestionar Sesiones Repetitivas</h3>
-                            <p class="text-blue-100 mt-2">Crear sesiones recurrentes automáticamente</p>
+                            <p class="text-blue-100 mt-2">Crear sesiones con patrón de repetición</p>
                         </button>
                         <button onclick="changeView('timoneles')" class="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl shadow-lg p-8 text-left hover:scale-105 transition">
                             <div class="text-6xl mb-3">👤</div>
@@ -508,6 +508,291 @@
                     </div>
                 </div>
             `;
+        }
+
+        // FUNCIONES PARA SESIONES REPETITIVAS
+        window.mostrarFormularioSesionesRepetitivas = function() {
+            document.getElementById('app').innerHTML = `
+                <div class="min-h-screen bg-gray-50">
+                    <header class="bg-blue-900 text-white shadow-lg">
+                        <div class="container mx-auto px-4 py-4">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-4xl">🔄</span>
+                                    <div>
+                                        <h1 class="text-xl font-bold">Configurar Sesiones Repetitivas</h1>
+                                        <p class="text-xs text-blue-200">Define el patrón de repetición</p>
+                                    </div>
+                                </div>
+                                <button onclick="render()" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">← Volver</button>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    <main class="container mx-auto px-4 py-8">
+                        <div class="bg-white rounded-xl shadow-lg p-8 max-w-3xl mx-auto">
+                            <h2 class="text-3xl font-bold mb-6">Patrón de Repetición</h2>
+                            
+                            <form id="formRepeticion" class="space-y-6">
+                                <!-- Tipo de repetición -->
+                                <div>
+                                    <label class="block text-sm font-bold mb-3">Tipo de repetición:</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="radio" name="tipoRepeticion" value="mismaHora" checked onchange="actualizarFormularioRepeticion()" class="mr-3">
+                                            <span class="font-medium">Misma hora todos los días</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="radio" name="tipoRepeticion" value="distintasHoras" onchange="actualizarFormularioRepeticion()" class="mr-3">
+                                            <span class="font-medium">Distintas horas según el día</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Días de la semana (misma hora) -->
+                                <div id="diasMismaHora">
+                                    <label class="block text-sm font-bold mb-3">Días de la semana:</label>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="1" class="mr-2">
+                                            <span>Lunes</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="2" class="mr-2">
+                                            <span>Martes</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="3" class="mr-2">
+                                            <span>Miércoles</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="4" class="mr-2">
+                                            <span>Jueves</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="5" class="mr-2">
+                                            <span>Viernes</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="6" class="mr-2">
+                                            <span>Sábado</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
+                                            <input type="checkbox" name="diasSemana" value="0" class="mr-2">
+                                            <span>Domingo</span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <label class="block text-sm font-bold mb-2">Hora de la sesión:</label>
+                                        <input type="time" id="horaMismaHora" required class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                </div>
+                                
+                                <!-- Días con distintas horas -->
+                                <div id="diasDistintasHoras" class="hidden">
+                                    <label class="block text-sm font-bold mb-3">Configurar horario por día:</label>
+                                    <div class="space-y-3">
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbLunes" class="mr-1">
+                                            <label class="w-24">Lunes:</label>
+                                            <input type="time" id="horaLunes" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbMartes" class="mr-1">
+                                            <label class="w-24">Martes:</label>
+                                            <input type="time" id="horaMartes" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbMiercoles" class="mr-1">
+                                            <label class="w-24">Miércoles:</label>
+                                            <input type="time" id="horaMiercoles" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbJueves" class="mr-1">
+                                            <label class="w-24">Jueves:</label>
+                                            <input type="time" id="horaJueves" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbViernes" class="mr-1">
+                                            <label class="w-24">Viernes:</label>
+                                            <input type="time" id="horaViernes" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbSabado" class="mr-1">
+                                            <label class="w-24">Sábado:</label>
+                                            <input type="time" id="horaSabado" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="checkbox" id="cbDomingo" class="mr-1">
+                                            <label class="w-24">Domingo:</label>
+                                            <input type="time" id="horaDomingo" class="flex-1 px-3 py-2 border-2 rounded-lg">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Fecha de inicio y fin -->
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Fecha de inicio:</label>
+                                        <input type="date" id="fechaInicio" required class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Fecha de fin:</label>
+                                        <input type="date" id="fechaFin" required class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                </div>
+                                
+                                <div class="flex gap-4 pt-4">
+                                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">
+                                        ✓ Continuar a Crear Sesión
+                                    </button>
+                                    <button type="button" onclick="render()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-3 rounded-lg font-bold">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </main>
+                </div>
+            `;
+            
+            // Establecer fecha de inicio por defecto (hoy)
+            document.getElementById('fechaInicio').value = new Date().toISOString().split('T')[0];
+            
+            // Manejar envío del formulario
+            document.getElementById('formRepeticion').addEventListener('submit', function(e) {
+                e.preventDefault();
+                procesarConfiguracionRepeticion();
+            });
+        };
+        
+        window.actualizarFormularioRepeticion = function() {
+            const tipoRepeticion = document.querySelector('input[name="tipoRepeticion"]:checked').value;
+            const diasMismaHora = document.getElementById('diasMismaHora');
+            const diasDistintasHoras = document.getElementById('diasDistintasHoras');
+            
+            if (tipoRepeticion === 'mismaHora') {
+                diasMismaHora.classList.remove('hidden');
+                diasDistintasHoras.classList.add('hidden');
+            } else {
+                diasMismaHora.classList.add('hidden');
+                diasDistintasHoras.classList.remove('hidden');
+            }
+        };
+        
+        function procesarConfiguracionRepeticion() {
+            const tipoRepeticion = document.querySelector('input[name="tipoRepeticion"]:checked').value;
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
+            
+            if (!fechaInicio || !fechaFin) {
+                alert('⚠️ Debe especificar fecha de inicio y fin');
+                return;
+            }
+            
+            if (fechaFin < fechaInicio) {
+                alert('⚠️ La fecha de fin debe ser posterior a la fecha de inicio');
+                return;
+            }
+            
+            if (tipoRepeticion === 'mismaHora') {
+                const diasSeleccionados = Array.from(document.querySelectorAll('input[name="diasSemana"]:checked'))
+                    .map(cb => parseInt(cb.value));
+                const hora = document.getElementById('horaMismaHora').value;
+                
+                if (diasSeleccionados.length === 0) {
+                    alert('⚠️ Debe seleccionar al menos un día de la semana');
+                    return;
+                }
+                
+                if (!hora) {
+                    alert('⚠️ Debe especificar la hora de la sesión');
+                    return;
+                }
+                
+                configuracionRepeticion = {
+                    tipo: 'mismaHora',
+                    dias: diasSeleccionados,
+                    hora: hora,
+                    fechaInicio: fechaInicio,
+                    fechaFin: fechaFin
+                };
+            } else {
+                // Distintas horas
+                const configuracionDias = {};
+                const dias = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
+                let haySel = false;
+                
+                dias.forEach((dia, index) => {
+                    const checkbox = document.getElementById('cb' + dia);
+                    const inputHora = document.getElementById('hora' + dia);
+                    
+                    if (checkbox && checkbox.checked) {
+                        if (!inputHora.value) {
+                            alert(`⚠️ Debe especificar la hora para ${dia}`);
+                            return;
+                        }
+                        configuracionDias[index] = inputHora.value;
+                        haySel = true;
+                    }
+                });
+                
+                if (!haySel) {
+                    alert('⚠️ Debe seleccionar al menos un día de la semana');
+                    return;
+                }
+                
+                configuracionRepeticion = {
+                    tipo: 'distintasHoras',
+                    configuracionDias: configuracionDias,
+                    fechaInicio: fechaInicio,
+                    fechaFin: fechaFin
+                };
+            }
+            
+            // Ir a la pantalla de crear sesión
+            changeView('sesiones');
+            setTimeout(() => {
+                mostrarFormSesion();
+            }, 100);
+        }
+
+        function generarFechasRepeticion(config) {
+            const fechas = [];
+            const inicio = new Date(config.fechaInicio + 'T00:00:00');
+            const fin = new Date(config.fechaFin + 'T23:59:59');
+            
+            let fechaActual = new Date(inicio);
+            
+            while (fechaActual <= fin) {
+                const diaSemana = fechaActual.getDay();
+                
+                if (config.tipo === 'mismaHora') {
+                    // Verificar si este día está en los días seleccionados
+                    if (config.dias.includes(diaSemana)) {
+                        const fechaStr = fechaActual.toISOString().split('T')[0];
+                        fechas.push({
+                            fecha: fechaStr,
+                            horario: config.hora
+                        });
+                    }
+                } else {
+                    // Distintas horas - verificar si este día tiene configuración
+                    if (config.configuracionDias[diaSemana]) {
+                        const fechaStr = fechaActual.toISOString().split('T')[0];
+                        fechas.push({
+                            fecha: fechaStr,
+                            horario: config.configuracionDias[diaSemana]
+                        });
+                    }
+                }
+                
+                // Avanzar un día
+                fechaActual.setDate(fechaActual.getDate() + 1);
+            }
+            
+            return fechas;
         }
 
         // TIMONELES
@@ -2839,202 +3124,6 @@
             }
         };
 
-        // CONFIGURACIÓN DE SESIONES REPETITIVAS
-        window.mostrarConfiguracionRepeticion = function() {
-            const modal = document.createElement('div');
-            modal.id = 'modalRepeticion';
-            modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4';
-            modal.onclick = (e) => { if (e.target === modal) cerrarModalRepeticion(); };
-            
-            const hoy = new Date().toISOString().split('T')[0];
-            const dentroUnMes = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
-            
-            modal.innerHTML = `
-                <div class="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-3xl font-bold">🔄 Configurar Sesiones Repetitivas</h3>
-                        <button onclick="cerrarModalRepeticion()" class="text-4xl hover:text-red-600">&times;</button>
-                    </div>
-                    
-                    <form id="formRepeticion" class="space-y-6">
-                        <div>
-                            <label class="block text-lg font-bold mb-3">📅 Periodo de repetición</label>
-                            <div class="grid md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-bold mb-2">Desde</label>
-                                    <input type="date" id="repFechaInicio" value="${hoy}" required 
-                                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-blue-500 focus:outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-bold mb-2">Hasta</label>
-                                    <input type="date" id="repFechaFin" value="${dentroUnMes}" required 
-                                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-blue-500 focus:outline-none">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-lg font-bold mb-3">📆 Días de la semana</label>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="1" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Lunes</span>
-                                </label>
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="2" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Martes</span>
-                                </label>
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="3" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Miércoles</span>
-                                </label>
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="4" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Jueves</span>
-                                </label>
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="5" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Viernes</span>
-                                </label>
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="6" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Sábado</span>
-                                </label>
-                                <label class="flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                    <input type="checkbox" name="diaSemana" value="0" class="mr-3 w-5 h-5">
-                                    <span class="font-bold">Domingo</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-lg font-bold mb-3">⏰ Horarios</label>
-                            <div class="space-y-3">
-                                <label class="flex items-center">
-                                    <input type="radio" name="tipoHorario" value="mismaHora" checked 
-                                        class="mr-3 w-5 h-5" onchange="toggleHorarios()">
-                                    <span class="font-bold">Misma hora para todos los días</span>
-                                </label>
-                                <div id="divMismaHora" class="ml-8">
-                                    <input type="time" id="repHorarioUnico" value="10:00" 
-                                        class="px-4 py-3 border-2 rounded-lg focus:border-blue-500 focus:outline-none">
-                                </div>
-                                
-                                <label class="flex items-center">
-                                    <input type="radio" name="tipoHorario" value="distintasHoras" 
-                                        class="mr-3 w-5 h-5" onchange="toggleHorarios()">
-                                    <span class="font-bold">Diferentes horarios según el día</span>
-                                </label>
-                                <div id="divDistintasHoras" class="ml-8 space-y-2 hidden">
-                                    <div class="grid grid-cols-2 gap-2 text-sm">
-                                        <div><span class="font-bold">Lunes:</span> <input type="time" id="horLunes" value="10:00" class="px-2 py-1 border rounded"></div>
-                                        <div><span class="font-bold">Martes:</span> <input type="time" id="horMartes" value="10:00" class="px-2 py-1 border rounded"></div>
-                                        <div><span class="font-bold">Miércoles:</span> <input type="time" id="horMiercoles" value="10:00" class="px-2 py-1 border rounded"></div>
-                                        <div><span class="font-bold">Jueves:</span> <input type="time" id="horJueves" value="10:00" class="px-2 py-1 border rounded"></div>
-                                        <div><span class="font-bold">Viernes:</span> <input type="time" id="horViernes" value="10:00" class="px-2 py-1 border rounded"></div>
-                                        <div><span class="font-bold">Sábado:</span> <input type="time" id="horSabado" value="10:00" class="px-2 py-1 border rounded"></div>
-                                        <div><span class="font-bold">Domingo:</span> <input type="time" id="horDomingo" value="10:00" class="px-2 py-1 border rounded"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex gap-4 pt-4">
-                            <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg font-bold text-lg">
-                                ✓ Continuar con la creación de sesiones
-                            </button>
-                            <button type="button" onclick="cerrarModalRepeticion()" 
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-4 rounded-lg font-bold">
-                                Cancelar
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            // Función para alternar entre horarios
-            window.toggleHorarios = function() {
-                const tipoHorario = document.querySelector('input[name="tipoHorario"]:checked').value;
-                const divMismaHora = document.getElementById('divMismaHora');
-                const divDistintasHoras = document.getElementById('divDistintasHoras');
-                
-                if (tipoHorario === 'mismaHora') {
-                    divMismaHora.classList.remove('hidden');
-                    divDistintasHoras.classList.add('hidden');
-                } else {
-                    divMismaHora.classList.add('hidden');
-                    divDistintasHoras.classList.remove('hidden');
-                }
-            };
-            
-            // Manejar envío del formulario
-            document.getElementById('formRepeticion').onsubmit = function(e) {
-                e.preventDefault();
-                
-                // Validar que al menos un día esté seleccionado
-                const diasSeleccionados = Array.from(document.querySelectorAll('input[name="diaSemana"]:checked'))
-                    .map(cb => parseInt(cb.value));
-                
-                if (diasSeleccionados.length === 0) {
-                    alert('⚠️ Debe seleccionar al menos un día de la semana');
-                    return;
-                }
-                
-                const fechaInicio = document.getElementById('repFechaInicio').value;
-                const fechaFin = document.getElementById('repFechaFin').value;
-                
-                if (fechaInicio > fechaFin) {
-                    alert('⚠️ La fecha de inicio debe ser anterior a la fecha de fin');
-                    return;
-                }
-                
-                const tipoHorario = document.querySelector('input[name="tipoHorario"]:checked').value;
-                let horarios = {};
-                
-                if (tipoHorario === 'mismaHora') {
-                    const horarioUnico = document.getElementById('repHorarioUnico').value;
-                    // Asignar el mismo horario a todos los días
-                    [0, 1, 2, 3, 4, 5, 6].forEach(dia => {
-                        horarios[dia] = horarioUnico;
-                    });
-                } else {
-                    // Horarios diferentes por día
-                    horarios = {
-                        1: document.getElementById('horLunes').value,
-                        2: document.getElementById('horMartes').value,
-                        3: document.getElementById('horMiercoles').value,
-                        4: document.getElementById('horJueves').value,
-                        5: document.getElementById('horViernes').value,
-                        6: document.getElementById('horSabado').value,
-                        0: document.getElementById('horDomingo').value
-                    };
-                }
-                
-                // Guardar configuración
-                configuracionRepeticion = {
-                    fechaInicio: fechaInicio,
-                    fechaFin: fechaFin,
-                    diasSemana: diasSeleccionados,
-                    horarios: horarios
-                };
-                
-                cerrarModalRepeticion();
-                
-                // Ir a la vista de sesiones y mostrar formulario
-                currentView = 'sesiones';
-                render().then(() => {
-                    mostrarFormSesion();
-                });
-            };
-        };
-        
-        window.cerrarModalRepeticion = function() {
-            const modal = document.getElementById('modalRepeticion');
-            if (modal) modal.remove();
-        };
-
         window.mostrarFormSesion = function() {
             const form = document.getElementById('formSesion');
             const listaSesiones = document.getElementById('listaSesionesRegistradas');
@@ -3047,58 +3136,8 @@
                 form.classList.remove('hidden');
                 if (listaSesiones) listaSesiones.classList.add('hidden');
                 editingSesionId = null;
-                
-                // Configurar título según si es modo repetitivo o normal
-                if (configuracionRepeticion) {
-                    document.getElementById('tituloFormSesion').textContent = '🔄 Nueva Sesión Repetitiva';
-                    document.getElementById('btnGuardarTexto').textContent = 'Crear Sesiones Repetitivas';
-                    
-                    // Ocultar campos de fecha y horario (ya vienen de la configuración)
-                    const camposFechaHora = document.querySelector('#formSesion .grid.md\\:grid-cols-2');
-                    if (camposFechaHora && camposFechaHora.querySelector('#sFecha')) {
-                        camposFechaHora.style.display = 'none';
-                    }
-                    
-                    // Mostrar información de repetición
-                    let infoRepeticion = document.getElementById('infoRepeticion');
-                    if (!infoRepeticion) {
-                        infoRepeticion = document.createElement('div');
-                        infoRepeticion.id = 'infoRepeticion';
-                        infoRepeticion.className = 'bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-4';
-                        const formSesion = document.getElementById('formSesion');
-                        const h3 = formSesion.querySelector('h3');
-                        h3.parentNode.insertBefore(infoRepeticion, h3.nextSibling);
-                    }
-                    
-                    const diasNombres = {0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado'};
-                    const diasTexto = configuracionRepeticion.diasSemana.map(d => diasNombres[d]).join(', ');
-                    
-                    infoRepeticion.innerHTML = `
-                        <p class="font-bold text-blue-800 mb-2">📋 Configuración de repetición:</p>
-                        <ul class="text-sm text-blue-700 space-y-1">
-                            <li>📅 <strong>Periodo:</strong> ${new Date(configuracionRepeticion.fechaInicio).toLocaleDateString('es-ES')} - ${new Date(configuracionRepeticion.fechaFin).toLocaleDateString('es-ES')}</li>
-                            <li>📆 <strong>Días:</strong> ${diasTexto}</li>
-                            <li>⏰ <strong>Horarios:</strong> ${configuracionRepeticion.diasSemana.length === 1 || Object.values(configuracionRepeticion.horarios).every(h => h === configuracionRepeticion.horarios[configuracionRepeticion.diasSemana[0]]) ? configuracionRepeticion.horarios[configuracionRepeticion.diasSemana[0]] : 'Variables según el día'}</li>
-                            <li class="text-orange-700 mt-2">⚠️ Las sesiones se crearán <strong>sin participantes ni personal asignado</strong></li>
-                        </ul>
-                    `;
-                } else {
-                    document.getElementById('tituloFormSesion').textContent = 'Nueva Sesión';
-                    document.getElementById('btnGuardarTexto').textContent = 'Crear Sesión';
-                    
-                    // Mostrar campos de fecha y horario
-                    const camposFechaHora = document.querySelector('#formSesion .grid.md\\:grid-cols-2');
-                    if (camposFechaHora && camposFechaHora.querySelector('#sFecha')) {
-                        camposFechaHora.style.display = 'grid';
-                    }
-                    
-                    // Ocultar información de repetición si existe
-                    const infoRepeticion = document.getElementById('infoRepeticion');
-                    if (infoRepeticion) {
-                        infoRepeticion.style.display = 'none';
-                    }
-                }
-                
+                document.getElementById('tituloFormSesion').textContent = 'Nueva Sesión';
+                document.getElementById('btnGuardarTexto').textContent = 'Crear Sesión';
                 document.getElementById('sNombre').value = '';
                 document.getElementById('sFecha').value = new Date().toISOString().split('T')[0];
                 document.getElementById('sHorario').value = '';
@@ -3124,7 +3163,6 @@
             if (listaSesiones) listaSesiones.classList.remove('hidden');
             editingSesionId = null;
             participantesSesion = [];
-            configuracionRepeticion = null; // Limpiar configuración de repetición
         };
 
         window.editarSesion = function(id) {
@@ -3433,7 +3471,7 @@
                     (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                     (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                     (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                    `Participantes: ${sesion.participantes.length}`,
+                    `Participantes: ${sesion.participantes.length > 0 ? sesion.participantes.length : 'Sin participantes'}`,
                 color: '#3b82f6' // azul
             };
             eventosActualizados.push(eventoSesion);
@@ -3457,7 +3495,7 @@
                             (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                             (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                             (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                            `Participantes: ${sesion.participantes.length}`,
+                            `Participantes: ${sesion.participantes.length > 0 ? sesion.participantes.length : 'Sin participantes'}`,
                         personal: timonel.nombre,
                         color: '#10b981' // verde
                     };
@@ -3469,19 +3507,19 @@
                     id: Date.now() + Math.random() + 1,
                     sesionId: sesion.id,
                     tipo: 'timoneles',
-                    titulo: 'Timonel sin asignar',
+                    titulo: 'Sin personal asignado',
                     fecha: sesion.fecha,
                     horario: sesion.horario,
-                    descripcion: `Rol: Timonel sin asignar\n` +
+                    descripcion: `⚠️ Personal sin asignar\n` +
                         `Sesión: ${sesion.nombre || sesion.tipo}\n` +
                         `Tipo: ${sesion.tipo}\n` +
-                        (barco ? `Barco: ${barco.nombre}\n` : '') +
+                        (barco ? `Barco: ${barco.nombre}\n` : 'Barco: Sin asignar\n') +
                         (auxiliar ? `Auxiliar: ${auxiliar.nombre}\n` : '') +
                         (auxiliar2 ? `Auxiliar 2: ${auxiliar2.nombre}\n` : '') +
                         (zodiacPersona ? `Zodiac: ${zodiacPersona.nombre}\n` : '') +
-                        `Participantes: ${sesion.participantes.length}`,
-                    personal: 'Sin asignar',
-                    color: '#10b981' // verde
+                        `Participantes: ${sesion.participantes.length > 0 ? sesion.participantes.length : 'Sin participantes'}`,
+                    personal: 'Sin personal',
+                    color: '#ef4444' // rojo para resaltar falta de personal
                 };
                 eventosActualizados.push(eventoTimonelSinAsignar);
             }
@@ -3871,102 +3909,94 @@
             if (auxiliar2Id) sesionData.auxiliar2Id = auxiliar2Id;
             
             const data = DB.get('sesiones') || [];
-            let sesionesGuardadas = []; // Array para almacenar todas las sesiones creadas
+            let sesionesGuardadas = []; // Array para almacenar IDs de sesiones creadas
             
-            // CREAR SESIONES REPETITIVAS O ÚNICA
-            if (!editingSesionId && configuracionRepeticion) {
-                // MODO REPETITIVO: Crear múltiples sesiones
-                const fechaInicio = new Date(configuracionRepeticion.fechaInicio);
-                const fechaFin = new Date(configuracionRepeticion.fechaFin);
-                const diasSemana = configuracionRepeticion.diasSemana;
-                const horarios = configuracionRepeticion.horarios;
+            // VERIFICAR SI HAY CONFIGURACIÓN DE REPETICIÓN
+            if (configuracionRepeticion && !editingSesionId) {
+                // Crear múltiples sesiones según el patrón de repetición
+                const fechasRepeticion = generarFechasRepeticion(configuracionRepeticion);
                 
-                // Iterar por cada día en el rango
-                let fechaActual = new Date(fechaInicio);
-                while (fechaActual <= fechaFin) {
-                    const diaSemana = fechaActual.getDay(); // 0=Domingo, 1=Lunes, etc.
-                    
-                    // Verificar si este día de la semana está seleccionado
-                    if (diasSemana.includes(diaSemana)) {
-                        const fechaStr = fechaActual.toISOString().split('T')[0];
-                        const horarioDelDia = horarios[diaSemana];
-                        
-                        // Crear sesión para este día
-                        const nuevaSesion = {
-                            ...sesionData,
-                            fecha: fechaStr,
-                            horario: horarioDelDia,
-                            participantes: [], // Sin participantes
-                            barcoIds: [], // Sin barcos
-                            timonelIds: [], // Sin timoneles
-                            barcoId: null,
-                            timonelId: null,
-                            timonel2Id: null,
-                            auxiliarId: null,
-                            auxiliar2Id: null,
-                            zodiacId: null,
-                            id: Date.now() + Math.random()
-                        };
-                        
-                        data.push(nuevaSesion);
-                        sesionesGuardadas.push(nuevaSesion);
-                    }
-                    
-                    // Avanzar al siguiente día
-                    fechaActual.setDate(fechaActual.getDate() + 1);
+                if (fechasRepeticion.length === 0) {
+                    alert('⚠️ No se generaron fechas con el patrón de repetición especificado');
+                    return;
                 }
+                
+                if (fechasRepeticion.length > 100) {
+                    if (!confirm(`Se crearán ${fechasRepeticion.length} sesiones. ¿Desea continuar?`)) {
+                        return;
+                    }
+                }
+                
+                // Crear una sesión para cada fecha generada
+                fechasRepeticion.forEach(fechaHora => {
+                    const sesionId = Date.now() + Math.random();
+                    const nuevaSesion = {
+                        ...sesionData,
+                        fecha: fechaHora.fecha,
+                        horario: fechaHora.horario,
+                        id: sesionId,
+                        // Para sesiones repetitivas, no se asignan ni participantes ni personal inicialmente
+                        participantes: [],
+                        barcoIds: [],
+                        timonelIds: [],
+                        barcoId: null,
+                        timonelId: null,
+                        timonel2Id: null,
+                        auxiliarId: null,
+                        auxiliar2Id: null,
+                        zodiacId: null
+                    };
+                    data.push(nuevaSesion);
+                    sesionesGuardadas.push({ id: sesionId, fecha: fechaHora.fecha, horario: fechaHora.horario });
+                });
                 
                 DB.set('sesiones', data);
                 
-                // Gestionar eventos de calendario para todas las sesiones creadas
-                sesionesGuardadas.forEach(sesion => {
-                    gestionarEventosCalendario(sesion, false);
+                // Crear eventos de calendario para todas las sesiones creadas
+                sesionesGuardadas.forEach(info => {
+                    const sesion = data.find(s => s.id === info.id);
+                    if (sesion) {
+                        gestionarEventosCalendario(sesion, false);
+                    }
                 });
                 
                 // Limpiar configuración de repetición
                 configuracionRepeticion = null;
+                participantesSesion = [];
                 
-                alert(`✅ Se han creado ${sesionesGuardadas.length} sesiones repetitivas correctamente.\n\nRecuerde asignar personal y participantes a cada sesión.`);
-                
-            } else if (editingSesionId) {
-                // MODO EDICIÓN: Actualizar sesión existente
+                alert(`✅ Se crearon ${sesionesGuardadas.length} sesiones repetitivas exitosamente.\n\nPodrá asignar personal y participantes editando cada sesión individualmente.`);
+                render();
+                return;
+            }
+            
+            // Código normal para sesión individual o edición
+            let sesionGuardadaId;
+            
+            if (editingSesionId) {
                 const index = data.findIndex(s => s.id === editingSesionId);
                 if (index >= 0) {
                     data[index] = { ...sesionData, id: editingSesionId };
                 }
-                sesionesGuardadas.push(data[index]);
-                
-                DB.set('sesiones', data);
-                
-                // GESTIONAR EVENTOS EN CALENDARIOS INTERNOS
-                const sesionGuardadaParaCalendar = data.find(s => s.id === editingSesionId);
-                if (sesionGuardadaParaCalendar) {
-                    gestionarEventosCalendario(sesionGuardadaParaCalendar, true);
-                }
-                
+                sesionGuardadaId = editingSesionId;
             } else {
-                // MODO NORMAL: Crear una sola sesión
-                const sesionGuardadaId = Date.now();
-                const nuevaSesion = { ...sesionData, id: sesionGuardadaId };
-                data.push(nuevaSesion);
-                sesionesGuardadas.push(nuevaSesion);
-                
-                DB.set('sesiones', data);
-                
-                // GESTIONAR EVENTOS EN CALENDARIOS INTERNOS
-                const sesionGuardadaParaCalendar = data.find(s => s.id === sesionGuardadaId);
-                if (sesionGuardadaParaCalendar) {
-                    gestionarEventosCalendario(sesionGuardadaParaCalendar, false);
-                }
+                sesionGuardadaId = Date.now();
+                data.push({ ...sesionData, id: sesionGuardadaId });
             }
             
-            // Preparar TODOS los mensajes de WhatsApp solo si NO es modo repetitivo y hay personal asignado
+            DB.set('sesiones', data);
+            
+            // GESTIONAR EVENTOS EN CALENDARIOS INTERNOS
+            const sesionGuardadaParaCalendar = data.find(s => s.id === sesionGuardadaId);
+            if (sesionGuardadaParaCalendar) {
+                gestionarEventosCalendario(sesionGuardadaParaCalendar, editingSesionId ? true : false);
+            }
+            
+            // Preparar TODOS los mensajes de WhatsApp (asignados + desasignados)
             const todosLosMensajes = [];
             
-            if (!configuracionRepeticion && sesionesGuardadas.length === 1) {
-                // Solo enviar WhatsApp si hay una sesión con personal asignado
-                const sesionGuardada = sesionesGuardadas[0];
-                if (sesionGuardada && (sesionGuardada.timonelIds?.length > 0 || sesionGuardada.auxiliarId || sesionGuardada.zodiacId)) {
+            // Obtener sesión guardada
+            const sesionGuardada = data.find(s => s.id === sesionGuardadaId);
+            if (sesionGuardada) {
                 // Preparar mensaje base
                 const fecha = new Date(sesionGuardada.fecha).toLocaleDateString('es-ES', { 
                     weekday: 'long', 
@@ -4062,35 +4092,34 @@
                         });
                     }
                 }
+            }
+            
+            // Agregar mensajes para personal DESASIGNADO
+            if (personalDesasignado.length > 0 && sesionAnterior) {
+                const fechaAnterior = new Date(sesionAnterior.fecha).toLocaleDateString('es-ES', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
                 
-                // Agregar mensajes para personal DESASIGNADO
-                if (personalDesasignado.length > 0 && sesionAnterior) {
-                    const fechaAnterior = new Date(sesionAnterior.fecha).toLocaleDateString('es-ES', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    });
+                personalDesasignado.forEach(item => {
+                    const telefono = item.persona.telefono.replace(/\D/g, '');
+                    const mensaje = `🛶 *Actualización de Sesión*\n\n` +
+                        `Has sido desasignado de la siguiente sesión:\n\n` +
+                        `📋 *Sesión:* ${sesionAnterior.nombre || sesionAnterior.tipo}\n` +
+                        `🏷️ *Tipo:* ${sesionAnterior.tipo}\n` +
+                        `📅 *Fecha:* ${fechaAnterior}\n` +
+                        `⏰ *Hora:* ${sesionAnterior.horario}\n\n` +
+                        `Tu rol anterior: ${item.rol}`;
                     
-                    personalDesasignado.forEach(item => {
-                        const telefono = item.persona.telefono.replace(/\D/g, '');
-                        const mensaje = `🛶 *Actualización de Sesión*\n\n` +
-                            `Has sido desasignado de la siguiente sesión:\n\n` +
-                            `📋 *Sesión:* ${sesionAnterior.nombre || sesionAnterior.tipo}\n` +
-                            `🏷️ *Tipo:* ${sesionAnterior.tipo}\n` +
-                            `📅 *Fecha:* ${fechaAnterior}\n` +
-                            `⏰ *Hora:* ${sesionAnterior.horario}\n\n` +
-                            `Tu rol anterior: ${item.rol}`;
-                        
-                        todosLosMensajes.push({
-                            telefono: telefono,
-                            mensaje: mensaje,
-                            nombre: item.persona.nombre,
-                            rol: `${item.rol} (DESASIGNADO)`
-                        });
+                    todosLosMensajes.push({
+                        telefono: telefono,
+                        mensaje: mensaje,
+                        nombre: item.persona.nombre,
+                        rol: `${item.rol} (DESASIGNADO)`
                     });
-                }
-                }
+                });
             }
             
             // Mostrar modal con TODOS los mensajes si hay alguno
