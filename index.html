@@ -681,7 +681,7 @@
             }
         };
         
-        function procesarConfiguracionRepeticion() {
+        async function procesarConfiguracionRepeticion() {
             const tipoRepeticion = document.querySelector('input[name="tipoRepeticion"]:checked').value;
             const fechaInicio = document.getElementById('fechaInicio').value;
             const fechaFin = document.getElementById('fechaFin').value;
@@ -723,6 +723,8 @@
                 const configuracionDias = {};
                 const dias = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
                 let haySel = false;
+                let errorEncontrado = false;
+                let diaConError = '';
                 
                 dias.forEach((dia, index) => {
                     const checkbox = document.getElementById('cb' + dia);
@@ -730,13 +732,19 @@
                     
                     if (checkbox && checkbox.checked) {
                         if (!inputHora.value) {
-                            alert(`⚠️ Debe especificar la hora para ${dia}`);
-                            return;
+                            errorEncontrado = true;
+                            diaConError = dia;
+                        } else {
+                            configuracionDias[index] = inputHora.value;
+                            haySel = true;
                         }
-                        configuracionDias[index] = inputHora.value;
-                        haySel = true;
                     }
                 });
+                
+                if (errorEncontrado) {
+                    alert(`⚠️ Debe especificar la hora para ${diaConError}`);
+                    return;
+                }
                 
                 if (!haySel) {
                     alert('⚠️ Debe seleccionar al menos un día de la semana');
@@ -751,11 +759,14 @@
                 };
             }
             
-            // Ir a la pantalla de crear sesión
-            changeView('sesiones');
-            setTimeout(() => {
+            // Ir a la pantalla de crear sesión (esperar a que render termine)
+            currentView = 'sesiones';
+            await render();
+            
+            // Usar requestAnimationFrame para asegurar que el DOM esté completamente actualizado
+            requestAnimationFrame(() => {
                 mostrarFormSesion();
-            }, 100);
+            });
         }
 
         function generarFechasRepeticion(config) {
