@@ -795,6 +795,83 @@
             return fechas;
         }
 
+        function crearSesionesRepetitivas() {
+            // Obtener datos básicos del formulario
+            const nombre = document.getElementById('sNombre').value;
+            const tipo = document.getElementById('sTipo').value;
+            const representante = document.getElementById('sRepresentante').value || '';
+            const telefonoRepresentante = document.getElementById('sTelefonoRepresentante').value || '';
+            
+            if (!nombre || !tipo) {
+                alert('⚠️ Debe especificar al menos el nombre y tipo de sesión');
+                return;
+            }
+            
+            // Generar fechas según configuración
+            const fechasRepeticion = generarFechasRepeticion(configuracionRepeticion);
+            
+            if (fechasRepeticion.length === 0) {
+                alert('⚠️ No se generaron fechas con el patrón de repetición especificado');
+                return;
+            }
+            
+            if (fechasRepeticion.length > 100) {
+                if (!confirm(`Se crearán ${fechasRepeticion.length} sesiones. ¿Desea continuar?`)) {
+                    return;
+                }
+            }
+            
+            // Obtener sesiones existentes
+            const data = DB.get('sesiones') || [];
+            const sesionesCreadas = [];
+            
+            // Crear una sesión para cada fecha generada
+            fechasRepeticion.forEach(fechaHora => {
+                const sesionId = Date.now() + Math.random();
+                const nuevaSesion = {
+                    id: sesionId,
+                    nombre: nombre,
+                    tipo: tipo,
+                    fecha: fechaHora.fecha,
+                    horario: fechaHora.horario,
+                    representante: representante,
+                    telefonoRepresentante: telefonoRepresentante,
+                    // Sin personal ni participantes
+                    participantes: [],
+                    barcoIds: [],
+                    timonelIds: [],
+                    barcoId: null,
+                    timonelId: null,
+                    timonel2Id: null,
+                    auxiliarId: null,
+                    auxiliar2Id: null,
+                    zodiacId: null
+                };
+                data.push(nuevaSesion);
+                sesionesCreadas.push({ id: sesionId, fecha: fechaHora.fecha, horario: fechaHora.horario });
+            });
+            
+            // Guardar todas las sesiones
+            DB.set('sesiones', data);
+            
+            // Crear eventos de calendario para todas las sesiones
+            sesionesCreadas.forEach(info => {
+                const sesion = data.find(s => s.id === info.id);
+                if (sesion) {
+                    gestionarEventosCalendario(sesion, false);
+                }
+            });
+            
+            // Limpiar configuración y variables
+            configuracionRepeticion = null;
+            participantesSesion = [];
+            editingSesionId = null;
+            
+            // Mostrar confirmación y volver a la vista de sesiones
+            alert(`✅ Se crearon ${sesionesCreadas.length} sesiones repetitivas exitosamente.\n\nPodrá asignar personal y participantes editando cada sesión individualmente.`);
+            render();
+        }
+
         // TIMONELES
         function renderTimoneles() {
             const users = DB.get('users') || [];
@@ -3136,8 +3213,43 @@
                 form.classList.remove('hidden');
                 if (listaSesiones) listaSesiones.classList.add('hidden');
                 editingSesionId = null;
-                document.getElementById('tituloFormSesion').textContent = 'Nueva Sesión';
-                document.getElementById('btnGuardarTexto').textContent = 'Crear Sesión';
+                
+                // Si hay configuración de repetición, ajustar el formulario
+                if (configuracionRepeticion) {
+                    document.getElementById('tituloFormSesion').textContent = 'Crear Sesiones Repetitivas';
+                    document.getElementById('btnGuardarTexto').textContent = 'Crear Sesiones';
+                    
+                    // Ocultar campos que no se usan en sesiones repetitivas
+                    const camposOcultar = [
+                        document.getElementById('sFecha').closest('div').parentElement,
+                        document.getElementById('sBarco').closest('div').parentElement,
+                        document.querySelector('label[for="excelFile"]')?.closest('div')?.parentElement,
+                        document.getElementById('camposAdicionales'),
+                        document.getElementById('camposPersonalAdicional')
+                    ];
+                    camposOcultar.forEach(campo => {
+                        if (campo) campo.style.display = 'none';
+                    });
+                    
+                    // Hacer que los campos no sean required
+                    document.getElementById('sFecha').required = false;
+                    document.getElementById('sHorario').required = false;
+                    document.getElementById('sBarco').required = false;
+                    document.getElementById('sTimonel').required = false;
+                } else {
+                    document.getElementById('tituloFormSesion').textContent = 'Nueva Sesión';
+                    document.getElementById('btnGuardarTexto').textContent = 'Crear Sesión';
+                    
+                    // Asegurar que todos los campos estén visibles
+                    document.querySelectorAll('#formSesion > div').forEach(div => {
+                        div.style.display = '';
+                    });
+                    
+                    // Restaurar required
+                    document.getElementById('sFecha').required = true;
+                    document.getElementById('sHorario').required = true;
+                }
+                
                 document.getElementById('sNombre').value = '';
                 document.getElementById('sFecha').value = new Date().toISOString().split('T')[0];
                 document.getElementById('sHorario').value = '';
@@ -3153,7 +3265,9 @@
                 
                 participantesSesion = [];
                 actualizarListaParticipantes();
-                actualizarCamposSesion();
+                if (!configuracionRepeticion) {
+                    actualizarCamposSesion();
+                }
             }
         };
 
@@ -3163,6 +3277,7 @@
             if (listaSesiones) listaSesiones.classList.remove('hidden');
             editingSesionId = null;
             participantesSesion = [];
+            configuracionRepeticion = null; // Limpiar configuración de repetición
         };
 
         window.editarSesion = function(id) {
@@ -3629,6 +3744,13 @@
         window.guardarSesion = function(e) {
             e.preventDefault();
             
+            // SI HAY CONFIGURACIÓN DE REPETICIÓN, usar flujo especial
+            if (configuracionRepeticion && !editingSesionId) {
+                crearSesionesRepetitivas();
+                return;
+            }
+            
+            // FLUJO NORMAL PARA SESIÓN INDIVIDUAL O EDICIÓN
             const fecha = document.getElementById('sFecha').value;
             const horario = document.getElementById('sHorario').value;
             
@@ -3909,67 +4031,6 @@
             if (auxiliar2Id) sesionData.auxiliar2Id = auxiliar2Id;
             
             const data = DB.get('sesiones') || [];
-            let sesionesGuardadas = []; // Array para almacenar IDs de sesiones creadas
-            
-            // VERIFICAR SI HAY CONFIGURACIÓN DE REPETICIÓN
-            if (configuracionRepeticion && !editingSesionId) {
-                // Crear múltiples sesiones según el patrón de repetición
-                const fechasRepeticion = generarFechasRepeticion(configuracionRepeticion);
-                
-                if (fechasRepeticion.length === 0) {
-                    alert('⚠️ No se generaron fechas con el patrón de repetición especificado');
-                    return;
-                }
-                
-                if (fechasRepeticion.length > 100) {
-                    if (!confirm(`Se crearán ${fechasRepeticion.length} sesiones. ¿Desea continuar?`)) {
-                        return;
-                    }
-                }
-                
-                // Crear una sesión para cada fecha generada
-                fechasRepeticion.forEach(fechaHora => {
-                    const sesionId = Date.now() + Math.random();
-                    const nuevaSesion = {
-                        ...sesionData,
-                        fecha: fechaHora.fecha,
-                        horario: fechaHora.horario,
-                        id: sesionId,
-                        // Para sesiones repetitivas, no se asignan ni participantes ni personal inicialmente
-                        participantes: [],
-                        barcoIds: [],
-                        timonelIds: [],
-                        barcoId: null,
-                        timonelId: null,
-                        timonel2Id: null,
-                        auxiliarId: null,
-                        auxiliar2Id: null,
-                        zodiacId: null
-                    };
-                    data.push(nuevaSesion);
-                    sesionesGuardadas.push({ id: sesionId, fecha: fechaHora.fecha, horario: fechaHora.horario });
-                });
-                
-                DB.set('sesiones', data);
-                
-                // Crear eventos de calendario para todas las sesiones creadas
-                sesionesGuardadas.forEach(info => {
-                    const sesion = data.find(s => s.id === info.id);
-                    if (sesion) {
-                        gestionarEventosCalendario(sesion, false);
-                    }
-                });
-                
-                // Limpiar configuración de repetición
-                configuracionRepeticion = null;
-                participantesSesion = [];
-                
-                alert(`✅ Se crearon ${sesionesGuardadas.length} sesiones repetitivas exitosamente.\n\nPodrá asignar personal y participantes editando cada sesión individualmente.`);
-                render();
-                return;
-            }
-            
-            // Código normal para sesión individual o edición
             let sesionGuardadaId;
             
             if (editingSesionId) {
