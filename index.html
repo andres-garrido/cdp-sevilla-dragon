@@ -539,12 +539,8 @@
                                     <label class="block text-sm font-bold mb-3">Tipo de repetición:</label>
                                     <div class="space-y-2">
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="tipoRepeticion" value="mismaHora" checked onchange="actualizarFormularioRepeticion()" class="mr-3">
+                                            <input type="radio" name="tipoRepeticion" value="mismaHora" checked class="mr-3">
                                             <span class="font-medium">Misma hora todos los días</span>
-                                        </label>
-                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="tipoRepeticion" value="distintasHoras" onchange="actualizarFormularioRepeticion()" class="mr-3">
-                                            <span class="font-medium">Distintas horas según el día</span>
                                         </label>
                                     </div>
                                 </div>
@@ -589,48 +585,6 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Días con distintas horas -->
-                                <div id="diasDistintasHoras" class="hidden">
-                                    <label class="block text-sm font-bold mb-3">Configurar horario por día:</label>
-                                    <div class="space-y-3">
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbLunes" class="mr-1">
-                                            <label class="w-24">Lunes:</label>
-                                            <input type="time" id="horaLunes" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbMartes" class="mr-1">
-                                            <label class="w-24">Martes:</label>
-                                            <input type="time" id="horaMartes" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbMiercoles" class="mr-1">
-                                            <label class="w-24">Miércoles:</label>
-                                            <input type="time" id="horaMiercoles" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbJueves" class="mr-1">
-                                            <label class="w-24">Jueves:</label>
-                                            <input type="time" id="horaJueves" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbViernes" class="mr-1">
-                                            <label class="w-24">Viernes:</label>
-                                            <input type="time" id="horaViernes" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbSabado" class="mr-1">
-                                            <label class="w-24">Sábado:</label>
-                                            <input type="time" id="horaSabado" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" id="cbDomingo" class="mr-1">
-                                            <label class="w-24">Domingo:</label>
-                                            <input type="time" id="horaDomingo" class="flex-1 px-3 py-2 border-2 rounded-lg">
-                                        </div>
-                                    </div>
-                                </div>
-                                
                                 <!-- Fecha de inicio y fin -->
                                 <div class="grid md:grid-cols-2 gap-4">
                                     <div>
@@ -667,22 +621,7 @@
             });
         };
         
-        window.actualizarFormularioRepeticion = function() {
-            const tipoRepeticion = document.querySelector('input[name="tipoRepeticion"]:checked').value;
-            const diasMismaHora = document.getElementById('diasMismaHora');
-            const diasDistintasHoras = document.getElementById('diasDistintasHoras');
-            
-            if (tipoRepeticion === 'mismaHora') {
-                diasMismaHora.classList.remove('hidden');
-                diasDistintasHoras.classList.add('hidden');
-            } else {
-                diasMismaHora.classList.add('hidden');
-                diasDistintasHoras.classList.remove('hidden');
-            }
-        };
-        
         async function procesarConfiguracionRepeticion() {
-            const tipoRepeticion = document.querySelector('input[name="tipoRepeticion"]:checked').value;
             const fechaInicio = document.getElementById('fechaInicio').value;
             const fechaFin = document.getElementById('fechaFin').value;
             
@@ -696,92 +635,32 @@
                 return;
             }
             
-            if (tipoRepeticion === 'mismaHora') {
-                const diasSeleccionados = Array.from(document.querySelectorAll('input[name="diasSemana"]:checked'))
-                    .map(cb => parseInt(cb.value));
-                const hora = document.getElementById('horaMismaHora').value;
-                
-                if (diasSeleccionados.length === 0) {
-                    alert('⚠️ Debe seleccionar al menos un día de la semana');
-                    return;
-                }
-                
-                if (!hora) {
-                    alert('⚠️ Debe especificar la hora de la sesión');
-                    return;
-                }
-                
-                configuracionRepeticion = {
-                    tipo: 'mismaHora',
-                    dias: diasSeleccionados,
-                    hora: hora,
-                    fechaInicio: fechaInicio,
-                    fechaFin: fechaFin
-                };
-            } else {
-                // Distintas horas
-                const configuracionDias = {};
-                const dias = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
-                let haySel = false;
-                let errorEncontrado = false;
-                let diaConError = '';
-                
-                console.log('=== VALIDANDO DISTINTAS HORAS ===');
-                
-                dias.forEach((dia, index) => {
-                    const checkbox = document.getElementById('cb' + dia);
-                    const inputHora = document.getElementById('hora' + dia);
-                    
-                    console.log(`Día: ${dia}, Checkbox encontrado: ${!!checkbox}, Checked: ${checkbox?.checked}, InputHora encontrado: ${!!inputHora}, Valor: "${inputHora?.value}"`);
-                    
-                    if (checkbox && checkbox.checked) {
-                        if (!inputHora || !inputHora.value || inputHora.value.trim() === '') {
-                            errorEncontrado = true;
-                            diaConError = dia;
-                            console.log(`ERROR: ${dia} está marcado pero no tiene hora`);
-                        } else {
-                            configuracionDias[index] = inputHora.value;
-                            haySel = true;
-                            console.log(`OK: ${dia} configurado con hora ${inputHora.value}`);
-                        }
-                    }
-                });
-                
-                console.log(`Resumen: haySel=${haySel}, errorEncontrado=${errorEncontrado}, diaConError=${diaConError}`);
-                console.log('configuracionDias:', configuracionDias);
-                
-                if (errorEncontrado) {
-                    alert(`⚠️ Debe especificar la hora para ${diaConError}`);
-                    return;
-                }
-                
-                if (!haySel) {
-                    alert('⚠️ Debe seleccionar al menos un día de la semana');
-                    return;
-                }
-                
-                configuracionRepeticion = {
-                    tipo: 'distintasHoras',
-                    configuracionDias: configuracionDias,
-                    fechaInicio: fechaInicio,
-                    fechaFin: fechaFin
-                };
-                
-                console.log('Configuración creada:', configuracionRepeticion);
+            const diasSeleccionados = Array.from(document.querySelectorAll('input[name="diasSemana"]:checked'))
+                .map(cb => parseInt(cb.value));
+            const hora = document.getElementById('horaMismaHora').value;
+            
+            if (diasSeleccionados.length === 0) {
+                alert('⚠️ Debe seleccionar al menos un día de la semana');
+                return;
             }
             
-            console.log('=== INICIANDO NAVEGACIÓN ===');
-            console.log('configuracionRepeticion final:', configuracionRepeticion);
+            if (!hora) {
+                alert('⚠️ Debe especificar la hora de la sesión');
+                return;
+            }
             
-            // Ir a la pantalla de crear sesión (esperar a que render termine)
+            configuracionRepeticion = {
+                tipo: 'mismaHora',
+                dias: diasSeleccionados,
+                hora: hora,
+                fechaInicio: fechaInicio,
+                fechaFin: fechaFin
+            };
+            
             currentView = 'sesiones';
-            console.log('Llamando a render()...');
             await render();
-            console.log('render() completado');
             
-            // Usar requestAnimationFrame para asegurar que el DOM esté completamente actualizado
             requestAnimationFrame(() => {
-                console.log('Llamando a mostrarFormSesion()...');
                 mostrarFormSesion();
             });
         }
@@ -796,24 +675,12 @@
             while (fechaActual <= fin) {
                 const diaSemana = fechaActual.getDay();
                 
-                if (config.tipo === 'mismaHora') {
-                    // Verificar si este día está en los días seleccionados
-                    if (config.dias.includes(diaSemana)) {
-                        const fechaStr = fechaActual.toISOString().split('T')[0];
-                        fechas.push({
-                            fecha: fechaStr,
-                            horario: config.hora
-                        });
-                    }
-                } else {
-                    // Distintas horas - verificar si este día tiene configuración
-                    if (config.configuracionDias[diaSemana]) {
-                        const fechaStr = fechaActual.toISOString().split('T')[0];
-                        fechas.push({
-                            fecha: fechaStr,
-                            horario: config.configuracionDias[diaSemana]
-                        });
-                    }
+                if (config.dias.includes(diaSemana)) {
+                    const fechaStr = fechaActual.toISOString().split('T')[0];
+                    fechas.push({
+                        fecha: fechaStr,
+                        horario: config.hora
+                    });
                 }
                 
                 // Avanzar un día
