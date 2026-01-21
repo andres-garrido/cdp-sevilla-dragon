@@ -726,20 +726,29 @@
                 let errorEncontrado = false;
                 let diaConError = '';
                 
+                console.log('=== VALIDANDO DISTINTAS HORAS ===');
+                
                 dias.forEach((dia, index) => {
                     const checkbox = document.getElementById('cb' + dia);
                     const inputHora = document.getElementById('hora' + dia);
                     
+                    console.log(`Día: ${dia}, Checkbox encontrado: ${!!checkbox}, Checked: ${checkbox?.checked}, InputHora encontrado: ${!!inputHora}, Valor: "${inputHora?.value}"`);
+                    
                     if (checkbox && checkbox.checked) {
-                        if (!inputHora.value) {
+                        if (!inputHora || !inputHora.value || inputHora.value.trim() === '') {
                             errorEncontrado = true;
                             diaConError = dia;
+                            console.log(`ERROR: ${dia} está marcado pero no tiene hora`);
                         } else {
                             configuracionDias[index] = inputHora.value;
                             haySel = true;
+                            console.log(`OK: ${dia} configurado con hora ${inputHora.value}`);
                         }
                     }
                 });
+                
+                console.log(`Resumen: haySel=${haySel}, errorEncontrado=${errorEncontrado}, diaConError=${diaConError}`);
+                console.log('configuracionDias:', configuracionDias);
                 
                 if (errorEncontrado) {
                     alert(`⚠️ Debe especificar la hora para ${diaConError}`);
@@ -757,14 +766,22 @@
                     fechaInicio: fechaInicio,
                     fechaFin: fechaFin
                 };
+                
+                console.log('Configuración creada:', configuracionRepeticion);
             }
+            
+            console.log('=== INICIANDO NAVEGACIÓN ===');
+            console.log('configuracionRepeticion final:', configuracionRepeticion);
             
             // Ir a la pantalla de crear sesión (esperar a que render termine)
             currentView = 'sesiones';
+            console.log('Llamando a render()...');
             await render();
+            console.log('render() completado');
             
             // Usar requestAnimationFrame para asegurar que el DOM esté completamente actualizado
             requestAnimationFrame(() => {
+                console.log('Llamando a mostrarFormSesion()...');
                 mostrarFormSesion();
             });
         }
