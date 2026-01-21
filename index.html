@@ -135,6 +135,19 @@
             return edad;
         }
 
+        // Lista de palistas del club
+        const PALISTAS_INICIALES = [
+            {nombre: "ÁFRICA  GONZÁLEZ  MÁRQUEZ", nombreAbreviado: "África", dni: "54437328P", username: "54437328P", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ALBERTO MAS RONDAN", nombreAbreviado: "Alberto", dni: "28872480M", username: "28872480M", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ALFONSO  VARGAS  PALOMINO", nombreAbreviado: "Alfonso", dni: "28887225F", username: "28887225F", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ANA BELÉN RUIZ LÓPEZ", nombreAbreviado: "Anabel", dni: "75119830J", username: "75119830J", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ANDREA GÓMEZ ORTIZ", nombreAbreviado: "Andrea", dni: "29538754S", username: "29538754S", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ANDRÉS LUIS GARRIDO HERNAEZ", nombreAbreviado: "Andrés Luis", dni: "28882021R", username: "28882021R", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ÁNGELA MARÍA  SÁNCHEZ DURÁN", nombreAbreviado: "Ángela María", dni: "28720926K", username: "28720926K", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ANTONIA  FLORES  ACOSTA", nombreAbreviado: "Antonia", dni: "52669957A", username: "52669957A", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ANTONIO FAGUNDO HERMOSO", nombreAbreviado: "Antonio", dni: "28801310C", username: "28801310C", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
+            {nombre: "ANTONIO  ALFÉREZ  GONZÁLEZ", nombreAbreviado: "Antonio", dni: "52350176Z", username: "52350176Z", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true}
+        ];
         
         // Inicializar datos
         async function initData() {
@@ -147,6 +160,16 @@
                     {id: 1, username: 'admin', password: 'admin123', role: 'admin', nombre: 'Administrador'},
                     {id: 2, username: 'timonel', password: 'timonel123', role: 'timonel', nombre: 'Juan Pérez', telefono: ''}
                 ];
+                
+                // Añadir palistas con IDs únicos
+                let nextId = 100;
+                PALISTAS_INICIALES.forEach(palista => {
+                    defaultUsers.push({
+                        id: nextId++,
+                        ...palista
+                    });
+                });
+                
                 users = defaultUsers;
                 DB.set('users', defaultUsers);
             }
@@ -158,6 +181,8 @@
             if (!DB.get('asistencias')) DB.set('asistencias', []);
             if (!DB.get('satisfaccion')) DB.set('satisfaccion', []);
             if (!DB.get('incidencias')) DB.set('incidencias', []);
+            if (!DB.get('confirmaciones')) DB.set('confirmaciones', []); // {sesionId, palistaId, estado: 'presente'/'ausente'}
+            if (!DB.get('foros')) DB.set('foros', []); // {sesionId, palistaId, palistaNombre, mensaje, fecha}
             
             // MIGRACIÓN ROBUSTA: Sincronizar TODOS los auxiliares y zodiac con la tabla users
             const auxiliares = DB.get('auxiliares') || [];
@@ -237,7 +262,7 @@
         
         // Listeners en tiempo real para sincronizar cambios
         function setupRealtimeListeners() {
-            const collections = ['users', 'auxiliares', 'zodiac', 'barcos', 'sesiones', 'asistencias', 'satisfaccion', 'incidencias'];
+            const collections = ['users', 'auxiliares', 'zodiac', 'barcos', 'sesiones', 'asistencias', 'satisfaccion', 'incidencias', 'confirmaciones', 'foros'];
             
             collections.forEach(collectionName => {
                 db.collection('data').doc(collectionName).onSnapshot((doc) => {
@@ -267,6 +292,10 @@
         let editingZodiacId = null;
         let editingBarcoId = null;
         let reconocimientoVoz = null;
+        
+        // Variables para sistema de palistas
+        let sesionSeleccionada = null; // ID de la sesión seleccionada por el palista
+        let vistaDetallePalista = 'informacion'; // informacion, deportistas, foro
 
         // Función para renderizar
         async function render() {
@@ -377,6 +406,27 @@
                         username: username,  // Guardar username para búsqueda en dashboard
                         allRoles: matchingUsers.map(u => u.role) // Guardar todos los roles
                     };
+                    
+                    // Si es palista en primer acceso, pedir cambio de contraseña
+                    if (currentUser.role === 'palista' && currentUser.primerAcceso) {
+                        const nuevaPassword = prompt('¡Bienvenido! Por seguridad, debes cambiar tu contraseña.\n\nIntroduce tu nueva contraseña:');
+                        if (nuevaPassword && nuevaPassword.trim() && nuevaPassword.length >= 4) {
+                            // Actualizar contraseña
+                            const userIndex = users.findIndex(u => u.id === currentUser.id);
+                            if (userIndex >= 0) {
+                                users[userIndex].password = nuevaPassword.trim();
+                                users[userIndex].primerAcceso = false;
+                                DB.set('users', users);
+                                currentUser.password = nuevaPassword.trim();
+                                currentUser.primerAcceso = false;
+                                alert('✅ Contraseña cambiada correctamente');
+                            }
+                        } else {
+                            alert('La contraseña debe tener al menos 4 caracteres. Inténtalo de nuevo.');
+                            return;
+                        }
+                    }
+                    
                     currentView = 'dashboard';
                     render();
                 } else {
@@ -415,6 +465,12 @@
                 }
             } else if (currentUser.role === 'timonel' || currentUser.role === 'auxiliar' || currentUser.role === 'zodiac') {
                 content = renderDashboardTimonel();
+            } else if (currentUser.role === 'palista') {
+                if (sesionSeleccionada) {
+                    content = renderDetalleSesionPalista();
+                } else {
+                    content = renderDashboardPalista();
+                }
             }
 
             return `
@@ -757,6 +813,299 @@
             alert(`✅ Se crearon ${sesionesCreadas.length} sesiones repetitivas exitosamente.\n\nPodrá asignar personal y participantes editando cada sesión individualmente.`);
             changeView('sesiones');
         }
+
+        // ===== SISTEMA DE PALISTAS =====
+        
+        function renderDashboardPalista() {
+            const sesiones = DB.get('sesiones') || [];
+            const confirmaciones = DB.get('confirmaciones') || [];
+            
+            // Filtrar sesiones para palistas (Veteranos, BCS, Open, Femenino, Mixto, ParaDragón)
+            const categoriasPermitidas = ['Veteranos', 'BCS', 'Open', 'Femenino', 'Mixto', 'Paradragón'];
+            const ahora = new Date();
+            const sesionesPalista = sesiones.filter(s => {
+                const fechaSesion = new Date(s.fecha);
+                return categoriasPermitidas.includes(s.tipo) && fechaSesion >= ahora && !s.cerrada;
+            }).sort((a, b) => new Date(a.fecha + ' ' + a.horario) - new Date(b.fecha + ' ' + b.horario));
+            
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700">
+                    <header class="bg-blue-900 text-white shadow-lg p-4">
+                        <div class="container mx-auto flex justify-between items-center">
+                            <div>
+                                <h1 class="text-2xl font-bold">🚣 CDP Sevilla-Dragón</h1>
+                                <p class="text-sm text-blue-200">Hola, ${currentUser.nombreAbreviado || currentUser.nombre}</p>
+                            </div>
+                            <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-bold">Cerrar Sesión</button>
+                        </div>
+                    </header>
+                    
+                    <main class="container mx-auto px-4 py-6">
+                        <h2 class="text-3xl font-bold text-white mb-6">Mis Sesiones</h2>
+                        
+                        ${sesionesPalista.length === 0 ? `
+                            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                                <div class="text-7xl mb-4">🛶</div>
+                                <p class="text-2xl text-gray-600">No hay sesiones programadas</p>
+                            </div>
+                        ` : `
+                            <div class="space-y-4">
+                                ${sesionesPalista.map(s => {
+                                    const confirmacion = confirmaciones.find(c => c.sesionId === s.id && c.palistaId === currentUser.id);
+                                    const estado = confirmacion?.estado || null;
+                                    
+                                    return `
+                                        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                                            <div onclick="verDetalleSesion(${s.id})" class="p-6 cursor-pointer hover:bg-gray-50">
+                                                <div class="flex justify-between items-start mb-4">
+                                                    <div class="flex-1">
+                                                        <h3 class="text-2xl font-bold text-gray-800">${s.nombre || s.tipo}</h3>
+                                                        <p class="text-gray-600 mt-2">📅 ${new Date(s.fecha).toLocaleDateString('es-ES', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</p>
+                                                        <p class="text-gray-600">⏰ ${s.horario}</p>
+                                                        <span class="inline-block mt-2 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">${s.tipo}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="bg-gray-50 px-6 py-4 flex gap-3" onclick="event.stopPropagation()">
+                                                <button onclick="confirmarAsistencia(${s.id}, 'presente')" 
+                                                    class="flex-1 py-3 rounded-lg font-bold ${estado === 'presente' ? 'bg-green-600 text-white' : 'bg-white border-2 border-green-600 text-green-600 hover:bg-green-50'}">
+                                                    ✓ Presente
+                                                </button>
+                                                <button onclick="confirmarAsistencia(${s.id}, 'ausente')" 
+                                                    class="flex-1 py-3 rounded-lg font-bold ${estado === 'ausente' ? 'bg-red-600 text-white' : 'bg-white border-2 border-red-600 text-red-600 hover:bg-red-50'}">
+                                                    ✗ Ausente
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `}
+                    </main>
+                </div>
+            `;
+        }
+        
+        function renderDetalleSesionPalista() {
+            const sesiones = DB.get('sesiones') || [];
+            const confirmaciones = DB.get('confirmaciones') || [];
+            const foros = DB.get('foros') || [];
+            const sesion = sesiones.find(s => s.id === sesionSeleccionada);
+            
+            if (!sesion) {
+                sesionSeleccionada = null;
+                render();
+                return '';
+            }
+            
+            const confirmacion = confirmaciones.find(c => c.sesionId === sesion.id && c.palistaId === currentUser.id);
+            const estado = confirmacion?.estado || null;
+            
+            // Obtener confirmaciones de todos los palistas para esta sesión
+            const confirmacionesSesion = confirmaciones.filter(c => c.sesionId === sesion.id && c.estado === 'presente');
+            const users = DB.get('users') || [];
+            const palistasConfirmados = confirmacionesSesion.map(c => {
+                const palista = users.find(u => u.id === c.palistaId);
+                return palista ? palista.nombreAbreviado || palista.nombre : 'Desconocido';
+            });
+            
+            // Obtener todos los palistas para mostrar pendientes
+            const palistas = users.filter(u => u.role === 'palista');
+            const palistasPendientes = palistas.filter(p => 
+                !confirmacionesSesion.some(c => c.palistaId === p.id)
+            );
+            
+            // Obtener mensajes del foro
+            const mensajesForo = foros.filter(f => f.sesionId === sesion.id)
+                .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            
+            let contenidoVista = '';
+            
+            if (vistaDetallePalista === 'informacion') {
+                contenidoVista = `
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-600 mb-1">Asistentes confirmados</p>
+                            <button onclick="mostrarListaAsistentes()" class="text-3xl font-bold text-blue-600 hover:text-blue-800">
+                                ${palistasConfirmados.length}
+                            </button>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-600 mb-1">Horario</p>
+                            <p class="text-2xl font-bold">${sesion.horario}</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-600 mb-2">Descripción</p>
+                            <p class="text-gray-800">${sesion.descripcion || 'Sin descripción'}</p>
+                        </div>
+                    </div>
+                `;
+            } else if (vistaDetallePalista === 'deportistas') {
+                contenidoVista = `
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-lg font-bold mb-3 text-green-700">✓ Apuntados (${palistasConfirmados.length})</h4>
+                            <div class="space-y-2">
+                                ${palistasConfirmados.length === 0 ? `
+                                    <p class="text-gray-500 italic">Aún no hay palistas confirmados</p>
+                                ` : palistasConfirmados.map(nombre => `
+                                    <div class="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                                        <p class="font-semibold">${nombre}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold mb-3 text-gray-600">⏳ Pendientes (${palistasPendientes.length})</h4>
+                            <div class="space-y-2">
+                                ${palistasPendientes.map(p => `
+                                    <div class="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
+                                        <p class="font-semibold">${p.nombreAbreviado || p.nombre}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (vistaDetallePalista === 'foro') {
+                contenidoVista = `
+                    <div class="space-y-4">
+                        ${mensajesForo.length === 0 ? `
+                            <div class="text-center py-8 text-gray-500">
+                                <p class="text-xl">💬</p>
+                                <p class="mt-2">Aún no hay mensajes</p>
+                                <p class="text-sm">¡Sé el primero en escribir!</p>
+                            </div>
+                        ` : mensajesForo.map(m => `
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <p class="font-bold text-blue-600">${m.palistaNombre}</p>
+                                    <p class="text-xs text-gray-500">${new Date(m.fecha).toLocaleDateString('es-ES')} ${new Date(m.fecha).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}</p>
+                                </div>
+                                <p class="text-gray-800">${m.mensaje}</p>
+                            </div>
+                        `).join('')}
+                        
+                        <button onclick="mostrarFormMensajeForo()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold text-xl">
+                            + Escribir mensaje
+                        </button>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700">
+                    <header class="bg-blue-900 text-white shadow-lg p-4">
+                        <div class="container mx-auto">
+                            <button onclick="volverListaSesiones()" class="text-white hover:text-blue-200 mb-3">
+                                ← Volver a sesiones
+                            </button>
+                            <h1 class="text-2xl font-bold">${sesion.nombre || sesion.tipo}</h1>
+                            <p class="text-sm text-blue-200">${new Date(sesion.fecha).toLocaleDateString('es-ES')}</p>
+                        </div>
+                    </header>
+                    
+                    <main class="container mx-auto px-4 py-6">
+                        <!-- Botones de confirmación -->
+                        <div class="bg-white rounded-xl shadow-lg p-4 mb-4 flex gap-3">
+                            <button onclick="confirmarAsistencia(${sesion.id}, 'presente')" 
+                                class="flex-1 py-3 rounded-lg font-bold ${estado === 'presente' ? 'bg-green-600 text-white' : 'bg-white border-2 border-green-600 text-green-600'}">
+                                ✓ Presente
+                            </button>
+                            <button onclick="confirmarAsistencia(${sesion.id}, 'ausente')" 
+                                class="flex-1 py-3 rounded-lg font-bold ${estado === 'ausente' ? 'bg-red-600 text-white' : 'bg-white border-2 border-red-600 text-red-600'}">
+                                ✗ Ausente
+                            </button>
+                        </div>
+                        
+                        <!-- Pestañas -->
+                        <div class="bg-white rounded-xl shadow-lg p-2 mb-4 flex gap-2">
+                            <button onclick="cambiarVistaPalista('informacion')" 
+                                class="flex-1 py-3 rounded-lg font-bold ${vistaDetallePalista === 'informacion' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                                ℹ️ Info
+                            </button>
+                            <button onclick="cambiarVistaPalista('deportistas')" 
+                                class="flex-1 py-3 rounded-lg font-bold ${vistaDetallePalista === 'deportistas' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                                👥 Palistas
+                            </button>
+                            <button onclick="cambiarVistaPalista('foro')" 
+                                class="flex-1 py-3 rounded-lg font-bold ${vistaDetallePalista === 'foro' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                                💬 Foro
+                            </button>
+                        </div>
+                        
+                        <!-- Contenido -->
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            ${contenidoVista}
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+        
+        // Funciones del sistema de palistas
+        window.verDetalleSesion = function(sesionId) {
+            sesionSeleccionada = sesionId;
+            vistaDetallePalista = 'informacion';
+            render();
+        };
+        
+        window.volverListaSesiones = function() {
+            sesionSeleccionada = null;
+            render();
+        };
+        
+        window.cambiarVistaPalista = function(vista) {
+            vistaDetallePalista = vista;
+            render();
+        };
+        
+        window.confirmarAsistencia = function(sesionId, estado) {
+            const confirmaciones = DB.get('confirmaciones') || [];
+            const index = confirmaciones.findIndex(c => c.sesionId === sesionId && c.palistaId === currentUser.id);
+            
+            if (index >= 0) {
+                confirmaciones[index].estado = estado;
+            } else {
+                confirmaciones.push({
+                    sesionId: sesionId,
+                    palistaId: currentUser.id,
+                    estado: estado,
+                    fecha: new Date().toISOString()
+                });
+            }
+            
+            DB.set('confirmaciones', confirmaciones);
+            render();
+        };
+        
+        window.mostrarListaAsistentes = function() {
+            const confirmaciones = DB.get('confirmaciones') || [];
+            const users = DB.get('users') || [];
+            const confirmacionesSesion = confirmaciones.filter(c => c.sesionId === sesionSeleccionada && c.estado === 'presente');
+            const nombres = confirmacionesSesion.map(c => {
+                const palista = users.find(u => u.id === c.palistaId);
+                return palista ? palista.nombreAbreviado || palista.nombre : 'Desconocido';
+            });
+            
+            alert('Palistas confirmados:\n\n' + nombres.join('\n'));
+        };
+        
+        window.mostrarFormMensajeForo = function() {
+            const mensaje = prompt('Escribe tu mensaje:');
+            if (mensaje && mensaje.trim()) {
+                const foros = DB.get('foros') || [];
+                foros.push({
+                    sesionId: sesionSeleccionada,
+                    palistaId: currentUser.id,
+                    palistaNombre: currentUser.nombreAbreviado || currentUser.nombre,
+                    mensaje: mensaje.trim(),
+                    fecha: new Date().toISOString()
+                });
+                DB.set('foros', foros);
+                render();
+            }
+        };
 
         // TIMONELES
         function renderTimoneles() {
