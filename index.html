@@ -135,19 +135,6 @@
             return edad;
         }
 
-        // Lista de palistas del club
-        const PALISTAS_INICIALES = [
-            {nombre: "ÁFRICA  GONZÁLEZ  MÁRQUEZ", nombreAbreviado: "África", dni: "54437328P", username: "54437328P", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ALBERTO MAS RONDAN", nombreAbreviado: "Alberto", dni: "28872480M", username: "28872480M", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ALFONSO  VARGAS  PALOMINO", nombreAbreviado: "Alfonso", dni: "28887225F", username: "28887225F", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ANA BELÉN RUIZ LÓPEZ", nombreAbreviado: "Anabel", dni: "75119830J", username: "75119830J", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ANDREA GÓMEZ ORTIZ", nombreAbreviado: "Andrea", dni: "29538754S", username: "29538754S", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ANDRÉS LUIS GARRIDO HERNAEZ", nombreAbreviado: "Andrés Luis", dni: "28882021R", username: "28882021R", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ÁNGELA MARÍA  SÁNCHEZ DURÁN", nombreAbreviado: "Ángela María", dni: "28720926K", username: "28720926K", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ANTONIA  FLORES  ACOSTA", nombreAbreviado: "Antonia", dni: "52669957A", username: "52669957A", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ANTONIO FAGUNDO HERMOSO", nombreAbreviado: "Antonio", dni: "28801310C", username: "28801310C", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true},
-            {nombre: "ANTONIO  ALFÉREZ  GONZÁLEZ", nombreAbreviado: "Antonio", dni: "52350176Z", username: "52350176Z", password: "123", role: "palista", categoria: "Veteranos", primerAcceso: true}
-        ];
         
         // Inicializar datos
         async function initData() {
@@ -160,16 +147,6 @@
                     {id: 1, username: 'admin', password: 'admin123', role: 'admin', nombre: 'Administrador'},
                     {id: 2, username: 'timonel', password: 'timonel123', role: 'timonel', nombre: 'Juan Pérez', telefono: ''}
                 ];
-                
-                // Añadir palistas con IDs únicos
-                let nextId = 100;
-                PALISTAS_INICIALES.forEach(palista => {
-                    defaultUsers.push({
-                        id: nextId++,
-                        ...palista
-                    });
-                });
-                
                 users = defaultUsers;
                 DB.set('users', defaultUsers);
             }
@@ -181,8 +158,7 @@
             if (!DB.get('asistencias')) DB.set('asistencias', []);
             if (!DB.get('satisfaccion')) DB.set('satisfaccion', []);
             if (!DB.get('incidencias')) DB.set('incidencias', []);
-            if (!DB.get('confirmaciones')) DB.set('confirmaciones', []); // {sesionId, palistaId, estado: 'presente'/'ausente'}
-            if (!DB.get('foros')) DB.set('foros', []); // {sesionId, palistaId, palistaNombre, mensaje, fecha}
+            if (!DB.get('asistentesEscuelas')) DB.set('asistentesEscuelas', []);
             
             // MIGRACIÓN ROBUSTA: Sincronizar TODOS los auxiliares y zodiac con la tabla users
             const auxiliares = DB.get('auxiliares') || [];
@@ -262,7 +238,7 @@
         
         // Listeners en tiempo real para sincronizar cambios
         function setupRealtimeListeners() {
-            const collections = ['users', 'auxiliares', 'zodiac', 'barcos', 'sesiones', 'asistencias', 'satisfaccion', 'incidencias', 'confirmaciones', 'foros'];
+            const collections = ['users', 'auxiliares', 'zodiac', 'barcos', 'sesiones', 'asistencias', 'satisfaccion', 'incidencias', 'asistentesEscuelas'];
             
             collections.forEach(collectionName => {
                 db.collection('data').doc(collectionName).onSnapshot((doc) => {
@@ -292,10 +268,6 @@
         let editingZodiacId = null;
         let editingBarcoId = null;
         let reconocimientoVoz = null;
-        
-        // Variables para sistema de palistas
-        let sesionSeleccionada = null; // ID de la sesión seleccionada por el palista
-        let vistaDetallePalista = 'informacion'; // informacion, deportistas, foro
 
         // Función para renderizar
         async function render() {
@@ -406,27 +378,6 @@
                         username: username,  // Guardar username para búsqueda en dashboard
                         allRoles: matchingUsers.map(u => u.role) // Guardar todos los roles
                     };
-                    
-                    // Si es palista en primer acceso, pedir cambio de contraseña
-                    if (currentUser.role === 'palista' && currentUser.primerAcceso) {
-                        const nuevaPassword = prompt('¡Bienvenido! Por seguridad, debes cambiar tu contraseña.\n\nIntroduce tu nueva contraseña:');
-                        if (nuevaPassword && nuevaPassword.trim() && nuevaPassword.length >= 4) {
-                            // Actualizar contraseña
-                            const userIndex = users.findIndex(u => u.id === currentUser.id);
-                            if (userIndex >= 0) {
-                                users[userIndex].password = nuevaPassword.trim();
-                                users[userIndex].primerAcceso = false;
-                                DB.set('users', users);
-                                currentUser.password = nuevaPassword.trim();
-                                currentUser.primerAcceso = false;
-                                alert('✅ Contraseña cambiada correctamente');
-                            }
-                        } else {
-                            alert('La contraseña debe tener al menos 4 caracteres. Inténtalo de nuevo.');
-                            return;
-                        }
-                    }
-                    
                     currentView = 'dashboard';
                     render();
                 } else {
@@ -446,6 +397,8 @@
                     content = renderDashboardAdmin();
                 } else if (currentView === 'timoneles') {
                     content = renderTimoneles();
+                } else if (currentView === 'escuelas') {
+                    content = renderAsistentesEscuelas();
                 } else if (currentView === 'auxiliares') {
                     content = renderAuxiliares();
                 } else if (currentView === 'zodiac') {
@@ -465,12 +418,6 @@
                 }
             } else if (currentUser.role === 'timonel' || currentUser.role === 'auxiliar' || currentUser.role === 'zodiac') {
                 content = renderDashboardTimonel();
-            } else if (currentUser.role === 'palista') {
-                if (sesionSeleccionada) {
-                    content = renderDetalleSesionPalista();
-                } else {
-                    content = renderDashboardPalista();
-                }
             }
 
             return `
@@ -512,6 +459,7 @@
                                 <div class="container mx-auto px-4 flex">
                                     <button onclick="changeView('dashboard')" class="px-6 py-3 ${currentView === 'dashboard' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🏠 Panel</button>
                                     <button onclick="changeView('timoneles')" class="px-6 py-3 ${currentView === 'timoneles' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">👤 Timoneles</button>
+                                    <button onclick="changeView('escuelas')" class="px-6 py-3 ${currentView === 'escuelas' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🎓 Asistentes Escuelas</button>
                                     <button onclick="changeView('auxiliares')" class="px-6 py-3 ${currentView === 'auxiliares' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🆘 Auxiliares</button>
                                     <button onclick="changeView('zodiac')" class="px-6 py-3 ${currentView === 'zodiac' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">🚤 Zodiac</button>
                                     <button onclick="changeView('barcos')" class="px-6 py-3 ${currentView === 'barcos' ? 'bg-blue-900 border-b-4 border-blue-400' : 'hover:bg-blue-700'}">⛵ Barcos</button>
@@ -564,6 +512,28 @@
                             <h3 class="text-2xl font-bold">Gestionar Timoneles</h3>
                             <p class="text-green-100 mt-2">Registrar usuarios timonel</p>
                         </button>
+                        <button onclick="changeView('escuelas')" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl shadow-lg p-8 text-left hover:scale-105 transition">
+                            <div class="text-6xl mb-3">🎓</div>
+                            <h3 class="text-2xl font-bold">Gestionar Asistentes Escuelas</h3>
+                            <p class="text-purple-100 mt-2">Escuelas deportivas municipales</p>
+                        </button>
+                    </div>
+                    
+                    <!-- Sección de Mantenimiento -->
+                    <div class="mt-8">
+                        <h3 class="text-2xl font-bold mb-4 text-gray-700">🔧 Mantenimiento de la Aplicación</h3>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <button onclick="limpiarCacheYSincronizar()" class="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl shadow-lg p-6 text-left hover:scale-105 transition">
+                                <div class="text-5xl mb-3">🔄</div>
+                                <h3 class="text-xl font-bold">Limpiar Caché y Sincronizar</h3>
+                                <p class="text-yellow-100 mt-2 text-sm">Fuerza la recarga de datos desde Firebase. Útil si la app no se actualiza. No borra datos.</p>
+                            </button>
+                            <button onclick="resetearAplicacion()" class="bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl shadow-lg p-6 text-left hover:scale-105 transition">
+                                <div class="text-5xl mb-3">⚠️</div>
+                                <h3 class="text-xl font-bold">Resetear Aplicación</h3>
+                                <p class="text-red-100 mt-2 text-sm">CUIDADO: Borra TODOS los datos y empieza desde cero. Acción irreversible.</p>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -595,34 +565,34 @@
                             <form id="formRepeticion" class="space-y-6">
                                 <!-- Días de la semana -->
                                 <div>
-                                    <label class="block text-sm font-bold mb-3">Día de la semana:</label>
+                                    <label class="block text-sm font-bold mb-3">Días de la semana (puedes seleccionar varios):</label>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="1" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="1" class="mr-2">
                                             <span>Lunes</span>
                                         </label>
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="2" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="2" class="mr-2">
                                             <span>Martes</span>
                                         </label>
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="3" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="3" class="mr-2">
                                             <span>Miércoles</span>
                                         </label>
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="4" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="4" class="mr-2">
                                             <span>Jueves</span>
                                         </label>
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="5" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="5" class="mr-2">
                                             <span>Viernes</span>
                                         </label>
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="6" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="6" class="mr-2">
                                             <span>Sábado</span>
                                         </label>
                                         <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50">
-                                            <input type="radio" name="diaSemana" value="0" class="mr-2">
+                                            <input type="checkbox" name="diaSemana" value="0" class="mr-2">
                                             <span>Domingo</span>
                                         </label>
                                     </div>
@@ -683,11 +653,12 @@
                 return;
             }
             
-            const diaSeleccionado = document.querySelector('input[name="diaSemana"]:checked');
+            // Obtener TODOS los días seleccionados (checkboxes marcados)
+            const diasSeleccionados = Array.from(document.querySelectorAll('input[name="diaSemana"]:checked')).map(cb => parseInt(cb.value));
             const hora = document.getElementById('horaMismaHora').value;
             
-            if (!diaSeleccionado) {
-                alert('⚠️ Debe seleccionar un día de la semana');
+            if (diasSeleccionados.length === 0) {
+                alert('⚠️ Debe seleccionar al menos un día de la semana');
                 return;
             }
             
@@ -698,7 +669,7 @@
             
             configuracionRepeticion = {
                 tipo: 'mismaHora',
-                dias: [parseInt(diaSeleccionado.value)],
+                dias: diasSeleccionados,
                 hora: hora,
                 fechaInicio: fechaInicio,
                 fechaFin: fechaFin
@@ -814,299 +785,6 @@
             changeView('sesiones');
         }
 
-        // ===== SISTEMA DE PALISTAS =====
-        
-        function renderDashboardPalista() {
-            const sesiones = DB.get('sesiones') || [];
-            const confirmaciones = DB.get('confirmaciones') || [];
-            
-            // Filtrar sesiones para palistas (Veteranos, BCS, Open, Femenino, Mixto, ParaDragón)
-            const categoriasPermitidas = ['Veteranos', 'BCS', 'Open', 'Femenino', 'Mixto', 'Paradragón'];
-            const ahora = new Date();
-            const sesionesPalista = sesiones.filter(s => {
-                const fechaSesion = new Date(s.fecha);
-                return categoriasPermitidas.includes(s.tipo) && fechaSesion >= ahora && !s.cerrada;
-            }).sort((a, b) => new Date(a.fecha + ' ' + a.horario) - new Date(b.fecha + ' ' + b.horario));
-            
-            return `
-                <div class="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700">
-                    <header class="bg-blue-900 text-white shadow-lg p-4">
-                        <div class="container mx-auto flex justify-between items-center">
-                            <div>
-                                <h1 class="text-2xl font-bold">🚣 CDP Sevilla-Dragón</h1>
-                                <p class="text-sm text-blue-200">Hola, ${currentUser.nombreAbreviado || currentUser.nombre}</p>
-                            </div>
-                            <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-bold">Cerrar Sesión</button>
-                        </div>
-                    </header>
-                    
-                    <main class="container mx-auto px-4 py-6">
-                        <h2 class="text-3xl font-bold text-white mb-6">Mis Sesiones</h2>
-                        
-                        ${sesionesPalista.length === 0 ? `
-                            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
-                                <div class="text-7xl mb-4">🛶</div>
-                                <p class="text-2xl text-gray-600">No hay sesiones programadas</p>
-                            </div>
-                        ` : `
-                            <div class="space-y-4">
-                                ${sesionesPalista.map(s => {
-                                    const confirmacion = confirmaciones.find(c => c.sesionId === s.id && c.palistaId === currentUser.id);
-                                    const estado = confirmacion?.estado || null;
-                                    
-                                    return `
-                                        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-                                            <div onclick="verDetalleSesion(${s.id})" class="p-6 cursor-pointer hover:bg-gray-50">
-                                                <div class="flex justify-between items-start mb-4">
-                                                    <div class="flex-1">
-                                                        <h3 class="text-2xl font-bold text-gray-800">${s.nombre || s.tipo}</h3>
-                                                        <p class="text-gray-600 mt-2">📅 ${new Date(s.fecha).toLocaleDateString('es-ES', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</p>
-                                                        <p class="text-gray-600">⏰ ${s.horario}</p>
-                                                        <span class="inline-block mt-2 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">${s.tipo}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="bg-gray-50 px-6 py-4 flex gap-3" onclick="event.stopPropagation()">
-                                                <button onclick="confirmarAsistencia(${s.id}, 'presente')" 
-                                                    class="flex-1 py-3 rounded-lg font-bold ${estado === 'presente' ? 'bg-green-600 text-white' : 'bg-white border-2 border-green-600 text-green-600 hover:bg-green-50'}">
-                                                    ✓ Presente
-                                                </button>
-                                                <button onclick="confirmarAsistencia(${s.id}, 'ausente')" 
-                                                    class="flex-1 py-3 rounded-lg font-bold ${estado === 'ausente' ? 'bg-red-600 text-white' : 'bg-white border-2 border-red-600 text-red-600 hover:bg-red-50'}">
-                                                    ✗ Ausente
-                                                </button>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        `}
-                    </main>
-                </div>
-            `;
-        }
-        
-        function renderDetalleSesionPalista() {
-            const sesiones = DB.get('sesiones') || [];
-            const confirmaciones = DB.get('confirmaciones') || [];
-            const foros = DB.get('foros') || [];
-            const sesion = sesiones.find(s => s.id === sesionSeleccionada);
-            
-            if (!sesion) {
-                sesionSeleccionada = null;
-                render();
-                return '';
-            }
-            
-            const confirmacion = confirmaciones.find(c => c.sesionId === sesion.id && c.palistaId === currentUser.id);
-            const estado = confirmacion?.estado || null;
-            
-            // Obtener confirmaciones de todos los palistas para esta sesión
-            const confirmacionesSesion = confirmaciones.filter(c => c.sesionId === sesion.id && c.estado === 'presente');
-            const users = DB.get('users') || [];
-            const palistasConfirmados = confirmacionesSesion.map(c => {
-                const palista = users.find(u => u.id === c.palistaId);
-                return palista ? palista.nombreAbreviado || palista.nombre : 'Desconocido';
-            });
-            
-            // Obtener todos los palistas para mostrar pendientes
-            const palistas = users.filter(u => u.role === 'palista');
-            const palistasPendientes = palistas.filter(p => 
-                !confirmacionesSesion.some(c => c.palistaId === p.id)
-            );
-            
-            // Obtener mensajes del foro
-            const mensajesForo = foros.filter(f => f.sesionId === sesion.id)
-                .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-            
-            let contenidoVista = '';
-            
-            if (vistaDetallePalista === 'informacion') {
-                contenidoVista = `
-                    <div class="space-y-4">
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <p class="text-sm text-gray-600 mb-1">Asistentes confirmados</p>
-                            <button onclick="mostrarListaAsistentes()" class="text-3xl font-bold text-blue-600 hover:text-blue-800">
-                                ${palistasConfirmados.length}
-                            </button>
-                        </div>
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <p class="text-sm text-gray-600 mb-1">Horario</p>
-                            <p class="text-2xl font-bold">${sesion.horario}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <p class="text-sm text-gray-600 mb-2">Descripción</p>
-                            <p class="text-gray-800">${sesion.descripcion || 'Sin descripción'}</p>
-                        </div>
-                    </div>
-                `;
-            } else if (vistaDetallePalista === 'deportistas') {
-                contenidoVista = `
-                    <div class="space-y-6">
-                        <div>
-                            <h4 class="text-lg font-bold mb-3 text-green-700">✓ Apuntados (${palistasConfirmados.length})</h4>
-                            <div class="space-y-2">
-                                ${palistasConfirmados.length === 0 ? `
-                                    <p class="text-gray-500 italic">Aún no hay palistas confirmados</p>
-                                ` : palistasConfirmados.map(nombre => `
-                                    <div class="bg-green-50 border-2 border-green-200 rounded-lg p-3">
-                                        <p class="font-semibold">${nombre}</p>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        <div>
-                            <h4 class="text-lg font-bold mb-3 text-gray-600">⏳ Pendientes (${palistasPendientes.length})</h4>
-                            <div class="space-y-2">
-                                ${palistasPendientes.map(p => `
-                                    <div class="bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
-                                        <p class="font-semibold">${p.nombreAbreviado || p.nombre}</p>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else if (vistaDetallePalista === 'foro') {
-                contenidoVista = `
-                    <div class="space-y-4">
-                        ${mensajesForo.length === 0 ? `
-                            <div class="text-center py-8 text-gray-500">
-                                <p class="text-xl">💬</p>
-                                <p class="mt-2">Aún no hay mensajes</p>
-                                <p class="text-sm">¡Sé el primero en escribir!</p>
-                            </div>
-                        ` : mensajesForo.map(m => `
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="flex justify-between items-start mb-2">
-                                    <p class="font-bold text-blue-600">${m.palistaNombre}</p>
-                                    <p class="text-xs text-gray-500">${new Date(m.fecha).toLocaleDateString('es-ES')} ${new Date(m.fecha).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}</p>
-                                </div>
-                                <p class="text-gray-800">${m.mensaje}</p>
-                            </div>
-                        `).join('')}
-                        
-                        <button onclick="mostrarFormMensajeForo()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold text-xl">
-                            + Escribir mensaje
-                        </button>
-                    </div>
-                `;
-            }
-            
-            return `
-                <div class="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700">
-                    <header class="bg-blue-900 text-white shadow-lg p-4">
-                        <div class="container mx-auto">
-                            <button onclick="volverListaSesiones()" class="text-white hover:text-blue-200 mb-3">
-                                ← Volver a sesiones
-                            </button>
-                            <h1 class="text-2xl font-bold">${sesion.nombre || sesion.tipo}</h1>
-                            <p class="text-sm text-blue-200">${new Date(sesion.fecha).toLocaleDateString('es-ES')}</p>
-                        </div>
-                    </header>
-                    
-                    <main class="container mx-auto px-4 py-6">
-                        <!-- Botones de confirmación -->
-                        <div class="bg-white rounded-xl shadow-lg p-4 mb-4 flex gap-3">
-                            <button onclick="confirmarAsistencia(${sesion.id}, 'presente')" 
-                                class="flex-1 py-3 rounded-lg font-bold ${estado === 'presente' ? 'bg-green-600 text-white' : 'bg-white border-2 border-green-600 text-green-600'}">
-                                ✓ Presente
-                            </button>
-                            <button onclick="confirmarAsistencia(${sesion.id}, 'ausente')" 
-                                class="flex-1 py-3 rounded-lg font-bold ${estado === 'ausente' ? 'bg-red-600 text-white' : 'bg-white border-2 border-red-600 text-red-600'}">
-                                ✗ Ausente
-                            </button>
-                        </div>
-                        
-                        <!-- Pestañas -->
-                        <div class="bg-white rounded-xl shadow-lg p-2 mb-4 flex gap-2">
-                            <button onclick="cambiarVistaPalista('informacion')" 
-                                class="flex-1 py-3 rounded-lg font-bold ${vistaDetallePalista === 'informacion' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
-                                ℹ️ Info
-                            </button>
-                            <button onclick="cambiarVistaPalista('deportistas')" 
-                                class="flex-1 py-3 rounded-lg font-bold ${vistaDetallePalista === 'deportistas' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
-                                👥 Palistas
-                            </button>
-                            <button onclick="cambiarVistaPalista('foro')" 
-                                class="flex-1 py-3 rounded-lg font-bold ${vistaDetallePalista === 'foro' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
-                                💬 Foro
-                            </button>
-                        </div>
-                        
-                        <!-- Contenido -->
-                        <div class="bg-white rounded-xl shadow-lg p-6">
-                            ${contenidoVista}
-                        </div>
-                    </main>
-                </div>
-            `;
-        }
-        
-        // Funciones del sistema de palistas
-        window.verDetalleSesion = function(sesionId) {
-            sesionSeleccionada = sesionId;
-            vistaDetallePalista = 'informacion';
-            render();
-        };
-        
-        window.volverListaSesiones = function() {
-            sesionSeleccionada = null;
-            render();
-        };
-        
-        window.cambiarVistaPalista = function(vista) {
-            vistaDetallePalista = vista;
-            render();
-        };
-        
-        window.confirmarAsistencia = function(sesionId, estado) {
-            const confirmaciones = DB.get('confirmaciones') || [];
-            const index = confirmaciones.findIndex(c => c.sesionId === sesionId && c.palistaId === currentUser.id);
-            
-            if (index >= 0) {
-                confirmaciones[index].estado = estado;
-            } else {
-                confirmaciones.push({
-                    sesionId: sesionId,
-                    palistaId: currentUser.id,
-                    estado: estado,
-                    fecha: new Date().toISOString()
-                });
-            }
-            
-            DB.set('confirmaciones', confirmaciones);
-            render();
-        };
-        
-        window.mostrarListaAsistentes = function() {
-            const confirmaciones = DB.get('confirmaciones') || [];
-            const users = DB.get('users') || [];
-            const confirmacionesSesion = confirmaciones.filter(c => c.sesionId === sesionSeleccionada && c.estado === 'presente');
-            const nombres = confirmacionesSesion.map(c => {
-                const palista = users.find(u => u.id === c.palistaId);
-                return palista ? palista.nombreAbreviado || palista.nombre : 'Desconocido';
-            });
-            
-            alert('Palistas confirmados:\n\n' + nombres.join('\n'));
-        };
-        
-        window.mostrarFormMensajeForo = function() {
-            const mensaje = prompt('Escribe tu mensaje:');
-            if (mensaje && mensaje.trim()) {
-                const foros = DB.get('foros') || [];
-                foros.push({
-                    sesionId: sesionSeleccionada,
-                    palistaId: currentUser.id,
-                    palistaNombre: currentUser.nombreAbreviado || currentUser.nombre,
-                    mensaje: mensaje.trim(),
-                    fecha: new Date().toISOString()
-                });
-                DB.set('foros', foros);
-                render();
-            }
-        };
-
         // TIMONELES
         function renderTimoneles() {
             const users = DB.get('users') || [];
@@ -1181,6 +859,1224 @@
                 </div>
             `;
         }
+
+
+        // ========== ASISTENTES ESCUELAS DEPORTIVAS ==========
+        let editingAsistenteEscuelaId = null;
+        let escuelaFiltroActual = 'todas'; // Para filtrar por escuela
+        
+        // Configuración de escuelas
+        const ESCUELAS_CONFIG = {
+            'Benjamín': { tipo: 'menores', edadMin: 6, edadMax: 8, requiereTutor: true },
+            'Alevín': { tipo: 'menores', edadMin: 9, edadMax: 10, requiereTutor: true },
+            'Cadete': { tipo: 'menores', edadMin: 11, edadMax: 14, requiereTutor: true },
+            'Juvenil': { tipo: 'menores', edadMin: 15, edadMax: 17, requiereTutor: true },
+            'BCS': { tipo: 'discapacidad', requiereClasificacion: true },
+            'ACS': { tipo: 'discapacidad', requiereClasificacion: true },
+            'Sensoriales/Físicos': { tipo: 'discapacidad', requiereClasificacion: true },
+            'Intelectuales': { tipo: 'discapacidad', requiereTutor: true, requiereClasificacion: true },
+            'Iniciación': { tipo: 'sevilla-dragon', requiereTutor: false },
+            'Formación': { tipo: 'sevilla-dragon', requiereTutor: false },
+            'Sevilla Dragón': { tipo: 'sevilla-dragon', requiereTutor: false }
+        };
+        
+        function calcularEdad(fechaNacimiento) {
+            const hoy = new Date();
+            const nacimiento = new Date(fechaNacimiento);
+            let edad = hoy.getFullYear() - nacimiento.getFullYear();
+            const mes = hoy.getMonth() - nacimiento.getMonth();
+            if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+                edad--;
+            }
+            return edad;
+        }
+        
+        function esMenor(fechaNacimiento) {
+            return calcularEdad(fechaNacimiento) < 18;
+        }
+        
+        function validarEdadEscuela(fechaNacimiento, escuela) {
+            const config = ESCUELAS_CONFIG[escuela];
+            if (!config || !config.edadMin) return { valido: true };
+            
+            const edad = calcularEdad(fechaNacimiento);
+            
+            if (edad < config.edadMin || edad > config.edadMax) {
+                // Sugerir escuela correcta
+                let sugerencia = '';
+                for (const [esc, conf] of Object.entries(ESCUELAS_CONFIG)) {
+                    if (conf.edadMin && edad >= conf.edadMin && edad <= conf.edadMax) {
+                        sugerencia = esc;
+                        break;
+                    }
+                }
+                
+                return {
+                    valido: false,
+                    mensaje: `La edad (${edad} años) no corresponde con ${escuela} (${config.edadMin}-${config.edadMax} años)${sugerencia ? '. Sugerencia: ' + sugerencia : ''}`
+                };
+            }
+            
+            return { valido: true };
+        }
+        
+        function requiereTutorSegunEscuela(escuela, fechaNacimiento) {
+            const config = ESCUELAS_CONFIG[escuela];
+            if (!config) return false;
+            
+            // Intelectuales siempre requiere tutor
+            if (escuela === 'Intelectuales') return true;
+            
+            // Escuelas de menores siempre requieren tutor
+            if (config.tipo === 'menores') return true;
+            
+            // Discapacidad (excepto Intelectuales): solo si es menor de edad
+            if (config.tipo === 'discapacidad' && fechaNacimiento) {
+                return esMenor(fechaNacimiento);
+            }
+            
+            // Sevilla Dragón: requiere tutor solo si es menor de edad
+            if (config.tipo === 'sevilla-dragon' && fechaNacimiento) {
+                return esMenor(fechaNacimiento);
+            }
+            
+            return false;
+        }
+        
+        function requiereClasificacion(escuela) {
+            const config = ESCUELAS_CONFIG[escuela];
+            return config && config.requiereClasificacion;
+        }
+        
+        function renderAsistentesEscuelas() {
+            const todosAsistentes = DB.get('asistentesEscuelas') || [];
+            
+            // Filtrar asistentes según la escuela seleccionada
+            const asistentes = (escuelaFiltroActual === 'todas' 
+                ? todosAsistentes 
+                : todosAsistentes.filter(a => a.escuela === escuelaFiltroActual))
+                .sort((a, b) => a.nombre.localeCompare(b.nombre)); // Ordenar alfabéticamente
+            
+            return `
+                <div class="container mx-auto px-4 py-8">
+                    <div class="flex justify-between mb-6">
+                        <h2 class="text-4xl font-bold">Gestión de Asistentes</h2>
+                        <button onclick="mostrarFormAsistenteEscuela()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold">+ Nuevo Asistente</button>
+                    </div>
+                    
+                    <!-- Botones de Filtro por Escuela -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h3 class="text-lg font-bold mb-4">Filtrar por Escuela:</h3>
+                        <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
+                            <button onclick="filtrarPorEscuela('todas')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'todas' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                📚 Todas (${todosAsistentes.length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('Benjamín')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'Benjamín' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                👶 Benjamín (${todosAsistentes.filter(a => a.escuela === 'Benjamín').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('Alevín')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'Alevín' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                🧒 Alevín (${todosAsistentes.filter(a => a.escuela === 'Alevín').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('Cadete')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'Cadete' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                👦 Cadete (${todosAsistentes.filter(a => a.escuela === 'Cadete').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('Juvenil')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'Juvenil' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                🧑 Juvenil (${todosAsistentes.filter(a => a.escuela === 'Juvenil').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('BCS')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'BCS' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                ♿ BCS (${todosAsistentes.filter(a => a.escuela === 'BCS').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('ACS')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'ACS' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                ♿ ACS (${todosAsistentes.filter(a => a.escuela === 'ACS').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('Sensoriales/Físicos')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'Sensoriales/Físicos' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                ♿ Sensoriales (${todosAsistentes.filter(a => a.escuela === 'Sensoriales/Físicos').length})
+                            </button>
+                            <button onclick="filtrarPorEscuela('Intelectuales')" class="px-4 py-3 rounded-lg font-bold transition ${escuelaFiltroActual === 'Intelectuales' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                ♿ Intelectuales (${todosAsistentes.filter(a => a.escuela === 'Intelectuales').length})
+                            </button>
+                            <button onclick="mostrarSevillaDragon()" class="px-4 py-3 rounded-lg font-bold transition bg-red-500 hover:bg-red-600 text-white">
+                                🐉 Sevilla Dragón (${todosAsistentes.filter(a => ['Iniciación', 'Formación', 'Sevilla Dragón'].includes(a.escuela)).length})
+                            </button>
+                        </div>
+                        
+                        <!-- Botón de Búsqueda -->
+                        <div class="mt-4 pt-4 border-t-2 border-gray-200">
+                            <button onclick="mostrarBusquedaAsistente()" class="w-full bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-bold text-lg">
+                                🔍 Buscar Asistente por Nombre
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="formAsistenteEscuela" class="hidden bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h3 id="tituloFormAsistenteEscuela" class="text-2xl font-bold mb-4">Registrar Asistente</h3>
+                        <form onsubmit="guardarAsistenteEscuela(event)" class="space-y-6">
+                            
+                            <!-- Datos Básicos -->
+                            <div class="bg-blue-50 p-6 rounded-lg">
+                                <h4 class="font-bold text-xl mb-4">📚 Datos del Asistente</h4>
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Escuela *</label>
+                                        <select id="aeEscuela" required class="w-full px-4 py-3 border-2 rounded-lg" onchange="actualizarCamposSegunEscuela()">
+                                            <option value="">Seleccionar escuela...</option>
+                                            <optgroup label="Menores">
+                                                <option>Benjamín</option>
+                                                <option>Alevín</option>
+                                                <option>Cadete</option>
+                                                <option>Juvenil</option>
+                                            </optgroup>
+                                            <optgroup label="Discapacidad">
+                                                <option>BCS</option>
+                                                <option>ACS</option>
+                                                <option>Sensoriales/Físicos</option>
+                                                <option>Intelectuales</option>
+                                            </optgroup>
+                                            <optgroup label="Sevilla Dragón">
+                                                <option>Iniciación</option>
+                                                <option>Formación</option>
+                                                <option>Sevilla Dragón</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Nombre Completo *</label>
+                                        <input type="text" id="aeNombre" required placeholder="Nombre completo"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Fecha Nacimiento *</label>
+                                        <input type="date" id="aeFechaNacimiento" required onchange="actualizarCamposSegunEscuela()"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p id="alertaEdad" class="text-red-600 text-sm font-bold mt-1 hidden"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Sabe Nadar *</label>
+                                        <select id="aeSabeNadar" required class="w-full px-4 py-3 border-2 rounded-lg">
+                                            <option value="si">Sí</option>
+                                            <option value="no">No</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Dirección *</label>
+                                        <input type="text" id="aeDireccion" required placeholder="Calle, número..."
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Localidad *</label>
+                                        <input type="text" id="aeLocalidad" required placeholder="Ciudad"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                </div>
+                                
+                                <!-- Campos de Pago -->
+                                <div class="grid md:grid-cols-2 gap-4 mt-4 pt-4 border-t-2 border-blue-200">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">💰 Importe Mensualidad</label>
+                                        <input type="number" id="aeImportePagar" step="0.01" min="0" placeholder="Ej: 25.00"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">Cuota mensual a pagar (€)</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">📅 Último Recibo Pagado</label>
+                                        <input type="month" id="aeUltimoReciboPagado" placeholder="Mes/Año"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">Último mes/año pagado</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Campos de Contacto y Datos Bancarios -->
+                                <div class="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">📱 Teléfono Asistente</label>
+                                        <input type="tel" id="aeTelefonoAsistente" placeholder="666777888"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">Teléfono del asistente</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">📱 Teléfono Tutor</label>
+                                        <input type="tel" id="aeTelefonoTutor" placeholder="666777888"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">Teléfono del tutor/responsable</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">📧 Email</label>
+                                        <input type="email" id="aeEmail" placeholder="ejemplo@email.com"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">Correo electrónico</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">🏦 Cuenta Corriente</label>
+                                        <input type="text" id="aeCuentaCorriente" placeholder="ES00 0000 0000 00 0000000000"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">IBAN para domiciliación</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Datos del Tutor (dinámico) -->
+                            <div id="seccionTutor" class="hidden bg-green-50 p-6 rounded-lg">
+                                <h4 class="font-bold text-xl mb-4">👨‍👩‍👧 Datos del Tutor</h4>
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Nombre Tutor <span class="text-red-600" id="reqTutor">*</span></label>
+                                        <input type="text" id="aeNombreTutor" placeholder="Nombre completo del tutor"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">DNI Tutor (imagen) <span class="text-red-600" id="reqDniTutor">*</span></label>
+                                        <input type="file" id="aeDniTutor" accept="image/*"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <img id="prevDniTutor" class="hidden mt-2 max-h-20 border">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Imágenes Obligatorias -->
+                            <div class="bg-yellow-50 p-6 rounded-lg">
+                                <h4 class="font-bold text-xl mb-4">📸 Documentación (Imágenes)</h4>
+                                <p class="text-sm text-orange-600 font-semibold mb-3 bg-orange-50 p-3 rounded-lg">
+                                    ⚠️ Los documentos NO son obligatorios para guardar el asistente, pero SÍ para poder incluirlo en sesiones.<br>
+                                    <span class="text-xs text-orange-700">* Solo DNI del asistente y Reconocimiento Médico son opcionales para sesiones</span>
+                                </p>
+                                
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Fotografía del Asistente</label>
+                                        <input type="file" id="aeFotografia" accept="image/*"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <img id="prevFotografia" class="hidden mt-2 max-h-32 border rounded">
+                                    </div>
+                                    
+                                    <div id="campoDniAsistente">
+                                        <label class="block text-sm font-bold mb-2">DNI Asistente (imagen) <span class="text-green-600 text-xs">(opcional para sesiones)</span></label>
+                                        <input type="file" id="aeDniAsistente" accept="image/*"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <img id="prevDniAsistente" class="hidden mt-2 max-h-20 border">
+                                    </div>
+                                </div>
+                                
+                                <div id="campoClasificacion" class="hidden mt-4">
+                                    <label class="block text-sm font-bold mb-2">Clasificación de Discapacidad (imagen)</label>
+                                    <input type="file" id="aeClasificacion" accept="image/*"
+                                        class="w-full px-4 py-3 border-2 rounded-lg">
+                                    <img id="prevClasificacion" class="hidden mt-2 max-h-20 border">
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Autorización Protección de Datos (imagen)</label>
+                                        <input type="file" id="aeAutDatos" accept="image/*"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <img id="prevAutDatos" class="hidden mt-2 max-h-20 border">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Autorización Utilización Imágenes</label>
+                                        <input type="file" id="aeAutImagenes" accept="image/*"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <img id="prevAutImagenes" class="hidden mt-2 max-h-20 border">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">Reconocimiento Médico (imagen) <span class="text-green-600 text-xs">(opcional para sesiones)</span></label>
+                                        <input type="file" id="aeReconocimiento" accept="image/*"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <img id="prevReconocimiento" class="hidden mt-2 max-h-20 border">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2">📅 Fecha Último Reconocimiento Médico</label>
+                                        <input type="date" id="aeFechaReconocimiento"
+                                            class="w-full px-4 py-3 border-2 rounded-lg">
+                                        <p class="text-xs text-gray-600 mt-1">Fecha del último reconocimiento</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="campoAutTutor" class="hidden mt-4">
+                                    <label class="block text-sm font-bold mb-2">Autorización del Tutor (imagen)</label>
+                                    <input type="file" id="aeAutTutor" accept="image/*"
+                                        class="w-full px-4 py-3 border-2 rounded-lg">
+                                    <img id="prevAutTutor" class="hidden mt-2 max-h-20 border">
+                                </div>
+                            </div>
+
+                            <div class="flex gap-4">
+                                <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg font-bold text-lg">
+                                    <span id="btnGuardarAsistenteTexto">💾 Guardar Asistente</span>
+                                </button>
+                                <button type="button" onclick="cancelarEdicionAsistente()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-8 py-4 rounded-lg font-bold">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold mb-4">Asistentes Registrados (${asistentes.length})</h3>
+                        ${asistentes.length === 0 ? `
+                            <div class="text-center py-16">
+                                <div class="text-7xl mb-4">🎓</div>
+                                <p class="text-2xl text-gray-500">No hay asistentes registrados</p>
+                                <p class="text-gray-400 mt-2">Haz clic en "+ Nuevo Asistente" para comenzar</p>
+                            </div>
+                        ` : `
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gray-100">
+                                            <th class="px-4 py-3 text-left">Foto</th>
+                                            <th class="px-4 py-3 text-left">Escuela</th>
+                                            <th class="px-4 py-3 text-left">Nombre</th>
+                                            <th class="px-4 py-3 text-center">Edad</th>
+                                            <th class="px-4 py-3 text-center">Cuota</th>
+                                            <th class="px-4 py-3 text-center">Estado Pago</th>
+                                            <th class="px-4 py-3 text-center">Documentos</th>
+                                            <th class="px-4 py-3 text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${asistentes.map(a => {
+                                            const edad = calcularEdad(a.fechaNacimiento);
+                                            
+                                            // Validar documentos OBLIGATORIOS para poder incluir en sesiones
+                                            // DNI asistente y Reconocimiento médico son OPCIONALES
+                                            let docsCompletos = a.fotografia && a.autDatos && a.autImagenes;
+                                            
+                                            // Si requiere tutor, necesita autorización del tutor
+                                            if (requiereTutorSegunEscuela(a.escuela, a.fechaNacimiento)) {
+                                                docsCompletos = docsCompletos && a.autTutor;
+                                            }
+                                            
+                                            // Si es escuela de discapacidad, necesita clasificación
+                                            if (requiereClasificacion(a.escuela)) {
+                                                docsCompletos = docsCompletos && a.clasificacion;
+                                            }
+                                            
+                                            // Calcular estado de pago
+                                            let estadoPago = { texto: 'Sin datos', color: 'bg-gray-100 text-gray-700', icono: '❓' };
+                                            if (a.ultimoReciboPagado) {
+                                                const hoy = new Date();
+                                                const [año, mes] = a.ultimoReciboPagado.split('-').map(Number);
+                                                const fechaPago = new Date(año, mes - 1);
+                                                const mesActual = new Date(hoy.getFullYear(), hoy.getMonth());
+                                                
+                                                const mesesDiff = (mesActual.getFullYear() - fechaPago.getFullYear()) * 12 + 
+                                                                  (mesActual.getMonth() - fechaPago.getMonth());
+                                                
+                                                if (mesesDiff <= 0) {
+                                                    estadoPago = { texto: 'Al día', color: 'bg-green-100 text-green-700', icono: '✓' };
+                                                } else if (mesesDiff === 1) {
+                                                    estadoPago = { texto: '1 mes', color: 'bg-yellow-100 text-yellow-700', icono: '⚠' };
+                                                } else {
+                                                    estadoPago = { texto: `${mesesDiff} meses`, color: 'bg-red-100 text-red-700', icono: '✗' };
+                                                }
+                                            }
+                                            
+                                            return `
+                                            <tr class="border-b hover:bg-gray-50">
+                                                <td class="px-4 py-3">
+                                                    ${a.fotografia ? `<img src="${a.fotografia}" class="w-12 h-12 rounded-full object-cover border-2">` : '<div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">👤</div>'}
+                                                </td>
+                                                <td class="px-4 py-3 font-semibold text-purple-600">${a.escuela}</td>
+                                                <td class="px-4 py-3">${a.nombre}</td>
+                                                <td class="px-4 py-3 text-center">${edad} años</td>
+                                                <td class="px-4 py-3 text-center font-bold">${a.importePagar ? a.importePagar + '€' : '-'}</td>
+                                                <td class="px-4 py-3 text-center">
+                                                    <span class="px-2 py-1 rounded-full text-xs font-bold ${estadoPago.color}">
+                                                        ${estadoPago.icono} ${estadoPago.texto}
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 text-center">
+                                                    <span class="px-2 py-1 rounded-full text-xs font-bold ${docsCompletos ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                                                        ${docsCompletos ? '✓ Completo' : '⚠ Incompleto'}
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <div class="flex justify-center gap-2">
+                                                        <button onclick="verDetalleAsistente(${a.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">👁️</button>
+                                                        <button onclick="editarAsistenteEscuela(${a.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">✏️</button>
+                                                        <button onclick="eliminarAsistenteEscuela(${a.id})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">🗑️</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        `}).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Funciones auxiliares
+        window.filtrarPorEscuela = function(escuela) {
+            escuelaFiltroActual = escuela;
+            render();
+        };
+        
+        window.mostrarSevillaDragon = function() {
+            const todosAsistentes = DB.get('asistentesEscuelas') || [];
+            const iniciacion = todosAsistentes.filter(a => a.escuela === 'Iniciación').length;
+            const formacion = todosAsistentes.filter(a => a.escuela === 'Formación').length;
+            const sevillaDragon = todosAsistentes.filter(a => a.escuela === 'Sevilla Dragón').length;
+            
+            // Crear modal con las 3 opciones
+            const modal = document.createElement('div');
+            modal.id = 'modalSevillaDragon';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-red-600">🐉 Sevilla Dragón</h2>
+                        <button onclick="cerrarModalSevillaDragon()" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">&times;</button>
+                    </div>
+                    
+                    <p class="text-gray-600 mb-6">Selecciona la categoría de Sevilla Dragón:</p>
+                    
+                    <div class="grid gap-4">
+                        <button onclick="filtrarPorEscuela('Iniciación'); cerrarModalSevillaDragon();" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-8 py-6 rounded-xl font-bold text-xl transition transform hover:scale-105">
+                            🌟 Iniciación (${iniciacion})
+                        </button>
+                        
+                        <button onclick="filtrarPorEscuela('Formación'); cerrarModalSevillaDragon();" 
+                            class="bg-green-500 hover:bg-green-600 text-white px-8 py-6 rounded-xl font-bold text-xl transition transform hover:scale-105">
+                            📚 Formación (${formacion})
+                        </button>
+                        
+                        <button onclick="filtrarPorEscuela('Sevilla Dragón'); cerrarModalSevillaDragon();" 
+                            class="bg-red-500 hover:bg-red-600 text-white px-8 py-6 rounded-xl font-bold text-xl transition transform hover:scale-105">
+                            🐉 Sevilla Dragón (${sevillaDragon})
+                        </button>
+                    </div>
+                    
+                    <div class="mt-6 text-center">
+                        <button onclick="cerrarModalSevillaDragon()" 
+                            class="text-gray-500 hover:text-gray-700 font-semibold">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Cerrar modal al hacer clic fuera
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    cerrarModalSevillaDragon();
+                }
+            });
+        };
+        
+        window.cerrarModalSevillaDragon = function() {
+            const modal = document.getElementById('modalSevillaDragon');
+            if (modal) {
+                modal.remove();
+            }
+        };
+        
+        window.mostrarBusquedaAsistente = function() {
+            const nombre = prompt('🔍 Buscar Asistente\n\nIntroduce el nombre (o parte del nombre) del asistente:');
+            
+            if (!nombre || nombre.trim() === '') {
+                return;
+            }
+            
+            const asistentes = DB.get('asistentesEscuelas') || [];
+            const nombreBusqueda = nombre.toLowerCase().trim();
+            
+            // Buscar coincidencias
+            const coincidencias = asistentes.filter(a => 
+                a.nombre.toLowerCase().includes(nombreBusqueda)
+            ).sort((a, b) => a.nombre.localeCompare(b.nombre)); // Ordenar alfabéticamente
+            
+            if (coincidencias.length === 0) {
+                alert('❌ No se encontraron asistentes con ese nombre.\n\nInténtalo con otro nombre o parte del nombre.');
+                return;
+            }
+            
+            // Crear modal con resultados clickables
+            const modal = document.createElement('div');
+            modal.id = 'modalBusquedaAsistente';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-blue-600">🔍 Resultados de Búsqueda</h2>
+                        <button onclick="cerrarModalBusqueda()" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">&times;</button>
+                    </div>
+                    
+                    <p class="text-gray-600 mb-4">Encontrados <strong>${coincidencias.length}</strong> asistente(s) con "<strong>${nombre}</strong>":</p>
+                    <p class="text-sm text-gray-500 mb-6">Haz clic en el asistente para ver sus detalles completos</p>
+                    
+                    <div class="space-y-3">
+                        ${coincidencias.map(a => {
+                            const edad = calcularEdad(a.fechaNacimiento);
+                            return `
+                                <button onclick="verDetalleAsistente(${a.id}); cerrarModalBusqueda();" 
+                                    class="w-full text-left bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 rounded-xl p-4 transition transform hover:scale-[1.02]">
+                                    <div class="flex items-center gap-4">
+                                        <div class="bg-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-lg">
+                                            ${a.nombre.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-bold text-lg text-gray-800">${a.nombre}</div>
+                                            <div class="text-sm text-gray-600">
+                                                <span class="font-semibold text-purple-600">${a.escuela}</span> 
+                                                <span class="mx-2">•</span> 
+                                                <span>${edad} años</span>
+                                            </div>
+                                        </div>
+                                        <div class="text-blue-500 text-2xl">→</div>
+                                    </div>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <div class="mt-6 text-center">
+                        <button onclick="cerrarModalBusqueda()" 
+                            class="text-gray-500 hover:text-gray-700 font-semibold">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Cerrar modal al hacer clic fuera
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    cerrarModalBusqueda();
+                }
+            });
+        };
+        
+        window.cerrarModalBusqueda = function() {
+            const modal = document.getElementById('modalBusquedaAsistente');
+            if (modal) {
+                modal.remove();
+            }
+        };
+        
+        window.mostrarFormAsistenteEscuela = function() {
+            const form = document.getElementById('formAsistenteEscuela');
+            if (!form) {
+                console.error('Form not found');
+                return;
+            }
+            
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                editingAsistenteEscuelaId = null;
+                document.getElementById('tituloFormAsistenteEscuela').textContent = 'Registrar Asistente';
+                document.getElementById('btnGuardarAsistenteTexto').textContent = '💾 Guardar Asistente';
+                limpiarFormularioAsistente();
+                setupImagePreviews();
+                
+                // Hacer scroll al formulario
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+        
+        function setupImagePreviews() {
+            const campos = ['Fotografia', 'DniAsistente', 'DniTutor', 'Clasificacion', 'AutDatos', 'AutImagenes', 'Reconocimiento', 'AutTutor'];
+            campos.forEach(campo => {
+                const input = document.getElementById('ae' + campo);
+                const prev = document.getElementById('prev' + campo);
+                if (input && prev) {
+                    input.addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                prev.src = event.target.result;
+                                prev.classList.remove('hidden');
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    });
+                }
+            });
+        }
+        
+        window.actualizarCamposSegunEscuela = function() {
+            const escuela = document.getElementById('aeEscuela').value;
+            const fechaNacimiento = document.getElementById('aeFechaNacimiento').value;
+            
+            if (!escuela || !fechaNacimiento) return;
+            
+            // Validar edad
+            const validacion = validarEdadEscuela(fechaNacimiento, escuela);
+            const alertaEdad = document.getElementById('alertaEdad');
+            if (!validacion.valido) {
+                alertaEdad.textContent = '⚠️ ' + validacion.mensaje;
+                alertaEdad.classList.remove('hidden');
+            } else {
+                alertaEdad.classList.add('hidden');
+            }
+            
+            // Mostrar/ocultar sección tutor
+            const requiereTutor = requiereTutorSegunEscuela(escuela, fechaNacimiento);
+            const seccionTutor = document.getElementById('seccionTutor');
+            const campoAutTutor = document.getElementById('campoAutTutor');
+            
+            if (requiereTutor) {
+                seccionTutor.classList.remove('hidden');
+                campoAutTutor.classList.remove('hidden');
+                document.getElementById('aeNombreTutor').required = true;
+                document.getElementById('aeDniTutor').required = true;
+                document.getElementById('aeAutTutor').required = true;
+            } else {
+                seccionTutor.classList.add('hidden');
+                campoAutTutor.classList.add('hidden');
+                document.getElementById('aeNombreTutor').required = false;
+                document.getElementById('aeDniTutor').required = false;
+                document.getElementById('aeAutTutor').required = false;
+            }
+            
+            // Mostrar/ocultar clasificación
+            const requiereClas = requiereClasificacion(escuela);
+            const campoClasificacion = document.getElementById('campoClasificacion');
+            if (requiereClas) {
+                campoClasificacion.classList.remove('hidden');
+                document.getElementById('aeClasificacion').required = true;
+            } else {
+                campoClasificacion.classList.add('hidden');
+                document.getElementById('aeClasificacion').required = false;
+            }
+            
+            // DNI asistente obligatorio si es mayor
+            const esMayorEdad = !esMenor(fechaNacimiento);
+            document.getElementById('aeDniAsistente').required = esMayorEdad;
+            document.getElementById('reqDniAsistente').style.display = esMayorEdad ? 'inline' : 'none';
+        };
+        
+        function limpiarFormularioAsistente() {
+            document.getElementById('aeEscuela').value = '';
+            document.getElementById('aeNombre').value = '';
+            document.getElementById('aeFechaNacimiento').value = '';
+            document.getElementById('aeSabeNadar').value = 'si';
+            document.getElementById('aeDireccion').value = '';
+            document.getElementById('aeLocalidad').value = '';
+            document.getElementById('aeNombreTutor').value = '';
+            document.getElementById('aeImportePagar').value = '';
+            document.getElementById('aeUltimoReciboPagado').value = '';
+            document.getElementById('aeFechaReconocimiento').value = '';
+            document.getElementById('aeTelefonoAsistente').value = '';
+            document.getElementById('aeTelefonoTutor').value = '';
+            document.getElementById('aeEmail').value = '';
+            document.getElementById('aeCuentaCorriente').value = '';
+            
+            // Limpiar previsualizaciones
+            ['Fotografia', 'DniAsistente', 'DniTutor', 'Clasificacion', 'AutDatos', 'AutImagenes', 'Reconocimiento', 'AutTutor'].forEach(campo => {
+                const input = document.getElementById('ae' + campo);
+                const prev = document.getElementById('prev' + campo);
+                if (input) input.value = '';
+                if (prev) {
+                    prev.src = '';
+                    prev.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('alertaEdad').classList.add('hidden');
+            document.getElementById('seccionTutor').classList.add('hidden');
+            document.getElementById('campoClasificacion').classList.add('hidden');
+        }
+        
+        async function fileToBase64(file, maxSize = 500, quality = 0.6) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Crear canvas para redimensionar
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Calcular nuevo tamaño manteniendo proporción
+                        if (width > height) {
+                            if (width > maxSize) {
+                                height = (height * maxSize) / width;
+                                width = maxSize;
+                            }
+                        } else {
+                            if (height > maxSize) {
+                                width = (width * maxSize) / height;
+                                height = maxSize;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convertir a JPEG con compresión
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                        const sizeKB = (compressedBase64.length / 1024).toFixed(1);
+                        console.log(`  → Imagen redimensionada a ${width}x${height} = ${sizeKB} KB`);
+                        resolve(compressedBase64);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        window.guardarAsistenteEscuela = async function(e) {
+            e.preventDefault();
+            
+            console.log('🚀 Iniciando guardado de asistente...');
+            
+            try {
+                const escuela = document.getElementById('aeEscuela').value;
+                const fechaNacimiento = document.getElementById('aeFechaNacimiento').value;
+                
+                console.log('Escuela:', escuela, 'Fecha:', fechaNacimiento);
+                
+                // Validar edad
+                const validacion = validarEdadEscuela(fechaNacimiento, escuela);
+                if (!validacion.valido) {
+                    alert('❌ ' + validacion.mensaje);
+                    return;
+                }
+                
+                // VALIDACIÓN: Menor que no sabe nadar NO puede inscribirse en ESCUELAS DE MENORES
+                const sabeNadar = document.getElementById('aeSabeNadar').value;
+                const escuelasMenores = ['Benjamín', 'Alevín', 'Cadete', 'Juvenil'];
+                
+                if (escuelasMenores.includes(escuela) && esMenor(fechaNacimiento) && sabeNadar === 'no') {
+                    alert('❌ NO SE PUEDE INSCRIBIR\n\nUn menor que NO sabe nadar NO puede inscribirse en las escuelas de menores (Benjamín, Alevín, Cadete, Juvenil).\n\nPor favor, marque "Sí" en el campo "Sabe Nadar" o elija otra escuela.');
+                    return;
+                }
+                
+                const asistentes = DB.get('asistentesEscuelas') || [];
+                console.log('Asistentes actuales:', asistentes.length);
+                
+                // Datos básicos
+                const asistenteData = {
+                    escuela,
+                    nombre: document.getElementById('aeNombre').value,
+                    fechaNacimiento,
+                    sabeNadar: sabeNadar,
+                    direccion: document.getElementById('aeDireccion').value,
+                    localidad: document.getElementById('aeLocalidad').value,
+                    importePagar: document.getElementById('aeImportePagar').value || '',
+                    ultimoReciboPagado: document.getElementById('aeUltimoReciboPagado').value || '',
+                    fechaReconocimiento: document.getElementById('aeFechaReconocimiento').value || '',
+                    telefonoAsistente: document.getElementById('aeTelefonoAsistente').value || '',
+                    telefonoTutor: document.getElementById('aeTelefonoTutor').value || '',
+                    email: document.getElementById('aeEmail').value || '',
+                    cuentaCorriente: document.getElementById('aeCuentaCorriente').value || ''
+                };
+                
+                console.log('Datos básicos recogidos');
+                
+                // Tutor (si aplica)
+                if (requiereTutorSegunEscuela(escuela, fechaNacimiento)) {
+                    console.log('Requiere tutor - procesando...');
+                    asistenteData.nombreTutor = document.getElementById('aeNombreTutor').value;
+                    
+                    const dniTutorFile = document.getElementById('aeDniTutor').files[0];
+                    if (dniTutorFile) {
+                        console.log('Convirtiendo DNI tutor...');
+                        asistenteData.dniTutor = await fileToBase64(dniTutorFile, 400, 0.6);
+                    }
+                    
+                    const autTutorFile = document.getElementById('aeAutTutor').files[0];
+                    if (autTutorFile) {
+                        console.log('Convirtiendo autorización tutor...');
+                        asistenteData.autTutor = await fileToBase64(autTutorFile, 400, 0.6);
+                    }
+                }
+                
+                // Imágenes obligatorias
+                console.log('Procesando imágenes obligatorias...');
+                
+                const fotoFile = document.getElementById('aeFotografia').files[0];
+                if (fotoFile) {
+                    console.log('Convirtiendo fotografía...');
+                    asistenteData.fotografia = await fileToBase64(fotoFile, 600, 0.7);
+                }
+                
+                const dniAsistenteFile = document.getElementById('aeDniAsistente').files[0];
+                if (dniAsistenteFile) {
+                    console.log('Convirtiendo DNI asistente...');
+                    asistenteData.dniAsistente = await fileToBase64(dniAsistenteFile, 400, 0.6);
+                }
+                
+                if (requiereClasificacion(escuela)) {
+                    const clasificacionFile = document.getElementById('aeClasificacion').files[0];
+                    if (clasificacionFile) {
+                        console.log('Convirtiendo clasificación...');
+                        asistenteData.clasificacion = await fileToBase64(clasificacionFile, 400, 0.6);
+                    }
+                }
+                
+                const autDatosFile = document.getElementById('aeAutDatos').files[0];
+                if (autDatosFile) {
+                    console.log('Convirtiendo aut. datos...');
+                    asistenteData.autDatos = await fileToBase64(autDatosFile, 400, 0.6);
+                }
+                
+                const autImagenesFile = document.getElementById('aeAutImagenes').files[0];
+                if (autImagenesFile) {
+                    console.log('Convirtiendo aut. imágenes...');
+                    asistenteData.autImagenes = await fileToBase64(autImagenesFile, 400, 0.6);
+                }
+                
+                const reconocimientoFile = document.getElementById('aeReconocimiento').files[0];
+                if (reconocimientoFile) {
+                    console.log('Convirtiendo reconocimiento...');
+                    asistenteData.reconocimiento = await fileToBase64(reconocimientoFile, 400, 0.6);
+                }
+                
+                console.log('Todas las imágenes procesadas');
+                
+                // Verificar tamaño total del documento
+                const jsonSize = JSON.stringify(asistenteData).length;
+                const sizeKB = (jsonSize / 1024).toFixed(1);
+                console.log(`📦 Tamaño total del asistente: ${sizeKB} KB`);
+                
+                if (jsonSize > 900000) { // Más de 900KB (límite de Firebase es 1MB)
+                    alert(`❌ ERROR: El tamaño total (${sizeKB} KB) supera el límite de Firebase.\n\nPor favor, usa imágenes más pequeñas o reduce la calidad.`);
+                    return;
+                }
+                
+                // Guardar
+                if (editingAsistenteEscuelaId) {
+                    const index = asistentes.findIndex(a => a.id === editingAsistenteEscuelaId);
+                    asistentes[index] = { ...asistentes[index], ...asistenteData };
+                    console.log('Asistente actualizado en posición', index);
+                } else {
+                    asistenteData.id = Date.now();
+                    asistentes.push(asistenteData);
+                    console.log('Nuevo asistente añadido. ID:', asistenteData.id);
+                }
+                
+                console.log('Total asistentes antes de guardar:', asistentes.length);
+                console.log('Guardando en Firebase...');
+                
+                DB.set('asistentesEscuelas', asistentes);
+                
+                console.log('Verificando guardado...');
+                const verificar = DB.get('asistentesEscuelas');
+                console.log('Asistentes después de guardar:', verificar ? verificar.length : 'NULL');
+                
+                if (verificar && verificar.length > 0) {
+                    alert(editingAsistenteEscuelaId ? '✅ Asistente actualizado correctamente' : '✅ Asistente registrado correctamente');
+                    editingAsistenteEscuelaId = null;
+                    render();
+                } else {
+                    console.error('❌ Error: Los datos no se guardaron correctamente');
+                    alert('❌ Error al guardar. Por favor, revisa la consola (F12) para más detalles.');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error al guardar asistente:', error);
+                alert('❌ Error al guardar: ' + error.message + '\n\nRevisa la consola (F12) para más detalles.');
+            }
+        };
+        
+        window.editarAsistenteEscuela = function(id) {
+            const asistentes = DB.get('asistentesEscuelas') || [];
+            const asistente = asistentes.find(a => a.id === id);
+            if (!asistente) return;
+            
+            editingAsistenteEscuelaId = id;
+            document.getElementById('tituloFormAsistenteEscuela').textContent = 'Editar Asistente';
+            document.getElementById('btnGuardarAsistenteTexto').textContent = '💾 Guardar Cambios';
+            
+            document.getElementById('aeEscuela').value = asistente.escuela;
+            document.getElementById('aeNombre').value = asistente.nombre;
+            document.getElementById('aeFechaNacimiento').value = asistente.fechaNacimiento;
+            document.getElementById('aeSabeNadar').value = asistente.sabeNadar;
+            document.getElementById('aeDireccion').value = asistente.direccion;
+            document.getElementById('aeLocalidad').value = asistente.localidad;
+            document.getElementById('aeImportePagar').value = asistente.importePagar || '';
+            document.getElementById('aeUltimoReciboPagado').value = asistente.ultimoReciboPagado || '';
+            document.getElementById('aeFechaReconocimiento').value = asistente.fechaReconocimiento || '';
+            document.getElementById('aeTelefonoAsistente').value = asistente.telefonoAsistente || '';
+            document.getElementById('aeTelefonoTutor').value = asistente.telefonoTutor || '';
+            document.getElementById('aeEmail').value = asistente.email || '';
+            document.getElementById('aeCuentaCorriente').value = asistente.cuentaCorriente || '';
+            
+            if (asistente.nombreTutor) {
+                document.getElementById('aeNombreTutor').value = asistente.nombreTutor;
+            }
+            
+            // Mostrar previsualizaciones de imágenes existentes
+            if (asistente.fotografia) {
+                document.getElementById('prevFotografia').src = asistente.fotografia;
+                document.getElementById('prevFotografia').classList.remove('hidden');
+            }
+            
+            actualizarCamposSegunEscuela();
+            document.getElementById('formAsistenteEscuela').classList.remove('hidden');
+            document.getElementById('formAsistenteEscuela').scrollIntoView({ behavior: 'smooth' });
+            setupImagePreviews();
+        };
+        
+        window.verDetalleAsistente = function(id) {
+            const asistentes = DB.get('asistentesEscuelas') || [];
+            const a = asistentes.find(asist => asist.id === id);
+            if (!a) return;
+            
+            const edad = calcularEdad(a.fechaNacimiento);
+            const requiereTutor = requiereTutorSegunEscuela(a.escuela, a.fechaNacimiento);
+            
+            // Calcular estado de pago
+            let estadoPagoHTML = '<span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">Sin datos</span>';
+            if (a.ultimoReciboPagado) {
+                const [año, mes] = a.ultimoReciboPagado.split('-');
+                const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                const hoy = new Date();
+                const fechaPago = new Date(parseInt(año), parseInt(mes) - 1);
+                const mesActual = new Date(hoy.getFullYear(), hoy.getMonth());
+                const mesesDiff = (mesActual.getFullYear() - fechaPago.getFullYear()) * 12 + (mesActual.getMonth() - fechaPago.getMonth());
+                
+                if (mesesDiff <= 0) {
+                    estadoPagoHTML = `<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">✅ AL DÍA</span>`;
+                } else if (mesesDiff === 1) {
+                    estadoPagoHTML = `<span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold">⚠️ PENDIENTE 1 MES</span>`;
+                } else {
+                    estadoPagoHTML = `<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold">❌ PENDIENTE ${mesesDiff} MESES</span>`;
+                }
+            }
+            
+            // Crear modal grande
+            const modal = document.createElement('div');
+            modal.id = 'modalDetalleAsistente';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto">
+                    <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                        <h2 class="text-3xl font-bold">📋 Detalles del Asistente</h2>
+                        <button onclick="cerrarModalDetalle()" class="text-white hover:text-gray-200 text-4xl font-bold">&times;</button>
+                    </div>
+                    
+                    <div class="p-8">
+                        <div class="grid md:grid-cols-2 gap-8">
+                            <!-- Columna Izquierda -->
+                            <div class="space-y-6">
+                                <!-- Datos Básicos -->
+                                <div class="bg-blue-50 p-6 rounded-xl">
+                                    <h3 class="text-xl font-bold text-blue-800 mb-4">📚 Datos Básicos</h3>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Escuela:</span>
+                                            <span class="font-bold text-purple-600">${a.escuela}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Nombre:</span>
+                                            <span class="font-bold">${a.nombre}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Edad:</span>
+                                            <span class="font-bold">${edad} años</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Sabe Nadar:</span>
+                                            <span class="font-bold ${a.sabeNadar === 'si' ? 'text-green-600' : 'text-red-600'}">${a.sabeNadar === 'si' ? '✓ Sí' : '✗ No'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Dirección:</span>
+                                            <span class="font-semibold text-right">${a.direccion}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Localidad:</span>
+                                            <span class="font-semibold">${a.localidad}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tutor -->
+                                ${requiereTutor && a.nombreTutor ? `
+                                <div class="bg-green-50 p-6 rounded-xl">
+                                    <h3 class="text-xl font-bold text-green-800 mb-4">👨‍👩‍👧 Datos del Tutor</h3>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Nombre:</span>
+                                            <span class="font-bold">${a.nombreTutor}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">DNI:</span>
+                                            <span class="font-bold ${a.dniTutor ? 'text-green-600' : 'text-red-600'}">${a.dniTutor ? '✓ Adjunto' : '✗ No adjunto'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                
+                                <!-- Información de Pago -->
+                                <div class="bg-yellow-50 p-6 rounded-xl">
+                                    <h3 class="text-xl font-bold text-yellow-800 mb-4">💰 Información de Pago</h3>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Cuota Mensual:</span>
+                                            <span class="font-bold text-green-600">${a.importePagar ? a.importePagar + ' €' : 'No especificada'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Último Pago:</span>
+                                            <span class="font-bold">${a.ultimoReciboPagado ? (() => {
+                                                const [año, mes] = a.ultimoReciboPagado.split('-');
+                                                const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                                                return meses[parseInt(mes) - 1] + ' ' + año;
+                                            })() : 'No registrado'}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Estado:</span>
+                                            ${estadoPagoHTML}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Columna Derecha -->
+                            <div class="space-y-6">
+                                <!-- Documentos -->
+                                <div class="bg-purple-50 p-6 rounded-xl">
+                                    <h3 class="text-xl font-bold text-purple-800 mb-4">📸 Documentos</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.fotografia ? 'text-green-600' : 'text-red-600'} text-xl">${a.fotografia ? '✓' : '✗'}</span>
+                                            <span class="text-sm">Fotografía</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.dniAsistente ? 'text-green-600' : 'text-red-600'} text-xl">${a.dniAsistente ? '✓' : '✗'}</span>
+                                            <span class="text-sm">DNI Asistente</span>
+                                        </div>
+                                        ${requiereClasificacion(a.escuela) ? `
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.clasificacion ? 'text-green-600' : 'text-red-600'} text-xl">${a.clasificacion ? '✓' : '✗'}</span>
+                                            <span class="text-sm">Clasificación</span>
+                                        </div>
+                                        ` : ''}
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.autDatos ? 'text-green-600' : 'text-red-600'} text-xl">${a.autDatos ? '✓' : '✗'}</span>
+                                            <span class="text-sm">Aut. Datos</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.autImagenes ? 'text-green-600' : 'text-red-600'} text-xl">${a.autImagenes ? '✓' : '✗'}</span>
+                                            <span class="text-sm">Aut. Imágenes</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.reconocimiento ? 'text-green-600' : 'text-red-600'} text-xl">${a.reconocimiento ? '✓' : '✗'}</span>
+                                            <span class="text-sm">Reconocimiento</span>
+                                        </div>
+                                        ${requiereTutor ? `
+                                        <div class="flex items-center gap-2">
+                                            <span class="${a.autTutor ? 'text-green-600' : 'text-red-600'} text-xl">${a.autTutor ? '✓' : '✗'}</span>
+                                            <span class="text-sm">Aut. Tutor</span>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                    ${a.fechaReconocimiento ? `
+                                    <div class="mt-4 pt-4 border-t border-purple-200">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600 text-sm">Fecha Reconocimiento:</span>
+                                            <span class="font-bold text-sm">${(() => {
+                                                const [año, mes, dia] = a.fechaReconocimiento.split('-');
+                                                return dia + '/' + mes + '/' + año;
+                                            })()}</span>
+                                        </div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                
+                                <!-- Información de Contacto -->
+                                <div class="bg-orange-50 p-6 rounded-xl">
+                                    <h3 class="text-xl font-bold text-orange-800 mb-4">📞 Información de Contacto</h3>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Tel. Asistente:</span>
+                                            <span class="font-bold">${a.telefonoAsistente || 'No especificado'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Tel. Tutor:</span>
+                                            <span class="font-bold">${a.telefonoTutor || 'No especificado'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Email:</span>
+                                            <span class="font-bold text-sm">${a.email || 'No especificado'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Cuenta Corriente:</span>
+                                            <span class="font-bold text-xs">${a.cuentaCorriente || 'No especificada'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botones de Acción -->
+                        <div class="flex gap-4 mt-8 pt-6 border-t border-gray-200">
+                            <button onclick="editarAsistenteEscuela(${id}); cerrarModalDetalle();" 
+                                class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-xl font-bold transition">
+                                ✏️ Editar
+                            </button>
+                            <button onclick="eliminarAsistenteEscuela(${id}); cerrarModalDetalle();" 
+                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition">
+                                🗑️ Eliminar
+                            </button>
+                            <button onclick="cerrarModalDetalle()" 
+                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-bold transition">
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Cerrar modal al hacer clic fuera
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    cerrarModalDetalle();
+                }
+            });
+        };
+        
+        window.cerrarModalDetalle = function() {
+            const modal = document.getElementById('modalDetalleAsistente');
+            if (modal) {
+                modal.remove();
+            }
+        };
+        
+        window.eliminarAsistenteEscuela = function(id) {
+            const asistentes = DB.get('asistentesEscuelas') || [];
+            const asistente = asistentes.find(a => a.id === id);
+            
+            if (!confirm(`¿Estás seguro de eliminar a ${asistente.nombre}?`)) return;
+            
+            const nuevosAsistentes = asistentes.filter(a => a.id !== id);
+            DB.set('asistentesEscuelas', nuevosAsistentes);
+            alert('✅ Asistente eliminado');
+            render();
+        };
+        
+        window.cancelarEdicionAsistente = function() {
+            document.getElementById('formAsistenteEscuela').classList.add('hidden');
+            editingAsistenteEscuelaId = null;
+        };
 
         // AUXILIARES
         function renderAuxiliares() {
@@ -1463,17 +2359,21 @@
                                 <div>
                                     <label class="block text-sm font-bold mb-2">Tipo de Sesión</label>
                                     <select id="sTipo" onchange="actualizarCamposSesion()" class="w-full px-4 py-3 border-2 rounded-lg">
-                                        <option>Veteranos</option>
                                         <option>Iniciación</option>
                                         <option>Formación</option>
-                                        <option>Inclusivo</option>
-                                        <option>Paradragón</option>
-                                        <option>Once</option>
-                                        <option>Mujer</option>
-                                        <option>Menores</option>
-                                        <option>Terapéutico</option>
-                                        <option>Empresa</option>
+                                        <option>Veteranos</option>
+                                        <option>Senior</option>
                                         <option>Tierra</option>
+                                        <option>Grupos Menores</option>
+                                        <option>Escuela BCS</option>
+                                        <option>Escuela Sensoriales</option>
+                                        <option>Escuela Físicos/Intelectuales</option>
+                                        <option>Escuela ACS</option>
+                                        <option>Benjamín</option>
+                                        <option>Alevín</option>
+                                        <option>Cadete</option>
+                                        <option>Juvenil</option>
+                                        <option>Empresas</option>
                                     </select>
                                 </div>
                             </div>
@@ -1880,36 +2780,81 @@
                         <p class="text-gray-600">Sesiones donde estás asignado en cualquier rol (Timonel, Auxiliar o Zodiac)</p>
                     </div>
                     
-                    ${sesionesFuturasConPendientes.length > 0 ? `
+                    <!-- Selector de vista -->
+                    <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
+                        <div class="flex flex-wrap gap-3 justify-center">
+                            <button 
+                                onclick="cambiarVistaTimonel('hoy')" 
+                                id="btnVistaHoy"
+                                class="px-6 py-3 rounded-lg font-bold text-lg transition ${vistaTimonelActual === 'hoy' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                📅 HOY (${sesionesHoy.length})
+                            </button>
+                            <button 
+                                onclick="cambiarVistaTimonel('pasadas')" 
+                                id="btnVistaPasadas"
+                                class="px-6 py-3 rounded-lg font-bold text-lg transition ${vistaTimonelActual === 'pasadas' ? 'bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                ⏮️ PASADAS (${sesionesPasadas.length})
+                            </button>
+                            <button 
+                                onclick="cambiarVistaTimonel('futuras')" 
+                                id="btnVistaFuturas"
+                                class="px-6 py-3 rounded-lg font-bold text-lg transition ${vistaTimonelActual === 'futuras' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}">
+                                ⏭️ FUTURAS (${sesionesFuturasConPendientes.length})
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Vista según selección -->
+                    ${vistaTimonelActual === 'hoy' ? `
                         <div class="mb-8">
-                            <h3 class="text-2xl font-bold mb-4 text-green-600">📅 Sesiones Futuras (${sesionesFuturasConPendientes.length})</h3>
+                            <h3 class="text-2xl font-bold mb-4 text-blue-600">📅 Sesiones de HOY (${new Date().toLocaleDateString('es-ES')})</h3>
+                            ${sesionesHoy.length === 0 ? `
+                                <div class="bg-white rounded-xl shadow-lg p-16 text-center">
+                                    <div class="text-8xl mb-4">🛶</div>
+                                    <h3 class="text-3xl font-bold mb-2">Sin sesiones hoy</h3>
+                                    <p class="text-xl text-gray-600">No hay sesiones asignadas para hoy</p>
+                                </div>
+                            ` : `
+                                <div class="grid md:grid-cols-2 gap-6">
+                                    ${sesionesHoy.map(s => renderSesion(s, true)).join('')}
+                                </div>
+                            `}
+                        </div>
+                    ` : ''}
+                    
+                    ${vistaTimonelActual === 'futuras' && sesionesFuturasConPendientes.length > 0 ? `
+                        <div class="mb-8">
+                            <h3 class="text-2xl font-bold mb-4 text-green-600">⏭️ Sesiones Futuras (${sesionesFuturasConPendientes.length})</h3>
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                                <p class="text-yellow-800 font-bold">ℹ️ Solo consulta - No puedes registrar asistencia en sesiones futuras</p>
+                            </div>
                             <div class="grid md:grid-cols-2 gap-6">
                                 ${sesionesFuturasConPendientes.map(s => renderSesion(s, false)).join('')}
                             </div>
                         </div>
+                    ` : vistaTimonelActual === 'futuras' ? `
+                        <div class="bg-white rounded-xl shadow-lg p-16 text-center">
+                            <div class="text-8xl mb-4">📅</div>
+                            <h3 class="text-3xl font-bold mb-2">Sin sesiones futuras</h3>
+                            <p class="text-xl text-gray-600">No hay sesiones programadas para el futuro</p>
+                        </div>
                     ` : ''}
                     
-                    <div class="mb-8">
-                        <h3 class="text-2xl font-bold mb-4 text-blue-600">📅 Sesiones de HOY (${new Date().toLocaleDateString('es-ES')})</h3>
-                        ${sesionesHoy.length === 0 ? `
-                            <div class="bg-white rounded-xl shadow-lg p-16 text-center">
-                                <div class="text-8xl mb-4">🛶</div>
-                                <h3 class="text-3xl font-bold mb-2">Sin sesiones hoy</h3>
-                                <p class="text-xl text-gray-600">No hay sesiones asignadas para hoy</p>
-                            </div>
-                        ` : `
-                            <div class="grid md:grid-cols-2 gap-6">
-                                ${sesionesHoy.map(s => renderSesion(s, true)).join('')}
-                            </div>
-                        `}
-                    </div>
-                    
-                    ${sesionesPasadas.length > 0 ? `
+                    ${vistaTimonelActual === 'pasadas' && sesionesPasadas.length > 0 ? `
                         <div class="mb-8">
-                            <h3 class="text-2xl font-bold mb-4 text-gray-500">📅 Sesiones Pasadas (${sesionesPasadas.length})</h3>
+                            <h3 class="text-2xl font-bold mb-4 text-gray-600">⏮️ Sesiones Pasadas (${sesionesPasadas.length})</h3>
+                            <div class="bg-gray-50 border-l-4 border-gray-500 p-4 mb-4">
+                                <p class="text-gray-800 font-bold">ℹ️ Solo consulta - Las sesiones pasadas están cerradas y no se pueden modificar</p>
+                            </div>
                             <div class="grid md:grid-cols-2 gap-6">
                                 ${sesionesPasadas.map(s => renderSesion(s, false)).join('')}
                             </div>
+                        </div>
+                    ` : vistaTimonelActual === 'pasadas' ? `
+                        <div class="bg-white rounded-xl shadow-lg p-16 text-center">
+                            <div class="text-8xl mb-4">📚</div>
+                            <h3 class="text-3xl font-bold mb-2">Sin sesiones pasadas</h3>
+                            <p class="text-xl text-gray-600">No hay sesiones pasadas registradas</p>
                         </div>
                     ` : ''}
                     
@@ -1939,8 +2884,19 @@
         // ESTADÍSTICAS
         let vistaEstadistica = 'palistas'; // por defecto
         
+        // VISTA TIMONEL
+        let vistaTimonelActual = 'hoy'; // por defecto: hoy, pasadas, futuras
+        
+        window.cambiarVistaTimonel = function(vista) {
+            vistaTimonelActual = vista;
+            render();
+        };
+        
         function renderEstadisticas() {
-            const sesiones = DB.get('sesiones') || [];
+            // SOLO CONTAR SESIONES CERRADAS (finalizadas y registradas)
+            const todasSesiones = DB.get('sesiones') || [];
+            const sesiones = todasSesiones.filter(s => s.cerrada === true);
+            
             const users = DB.get('users') || [];
             const auxiliares = DB.get('auxiliares') || [];
             const zodiac = DB.get('zodiac') || [];
@@ -2118,8 +3074,24 @@
                     </div>
                 `;
             } else if (vistaEstadistica === 'categorias') {
-                // Estadísticas por categoría
-                const categorias = ['Veteranos', 'Iniciación', 'Formación', 'Inclusivo', 'Paradragón', 'Once', 'Mujer', 'Menores', 'Terapéutico', 'Empresa', 'Tierra'];
+                // Estadísticas por categoría - TIPOS ACTUALIZADOS
+                const categorias = [
+                    'Iniciación',
+                    'Formación', 
+                    'Veteranos',
+                    'Senior',
+                    'Tierra',
+                    'Grupos Menores',
+                    'Escuela BCS',
+                    'Escuela Sensoriales',
+                    'Escuela Físicos/Intelectuales',
+                    'Escuela ACS',
+                    'Benjamín',
+                    'Alevín',
+                    'Cadete',
+                    'Juvenil',
+                    'Empresas'
+                ];
                 const estadisticasCategorias = categorias.map(categoria => {
                     const sesionesCat = sesiones.filter(s => s.tipo === categoria);
                     const totalSesiones = sesionesCat.length;
@@ -2164,6 +3136,17 @@
             return `
                 <div class="container mx-auto px-4 py-8">
                     <h2 class="text-4xl font-bold mb-6">Estadísticas del Club</h2>
+                    
+                    <!-- Indicador de sesiones contadas -->
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-3">ℹ️</span>
+                            <div>
+                                <p class="font-bold text-blue-900">Solo sesiones finalizadas y registradas</p>
+                                <p class="text-blue-700 text-sm">Contando ${sesiones.length} de ${todasSesiones.length} sesiones totales (${todasSesiones.length - sesiones.length} pendientes)</p>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Botones de selección -->
                     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
@@ -2910,8 +3893,71 @@
             render();
         };
 
+        // FUNCIÓN DE RESET COMPLETO DE LA APLICACIÓN
+        window.resetearAplicacion = async function() {
+            const confirmacion = confirm('⚠️ ADVERTENCIA ⚠️\n\n¿Estás SEGURO de que quieres BORRAR TODOS LOS DATOS?\n\nEsto eliminará:\n- Todos los usuarios\n- Todas las sesiones\n- Todos los asistentes\n- Todos los barcos\n- Todo el historial\n\nEsta acción NO SE PUEDE DESHACER.\n\n¿Continuar?');
+            
+            if (!confirmacion) return;
+            
+            const segundaConfirmacion = confirm('⚠️ ÚLTIMA CONFIRMACIÓN ⚠️\n\nEsta es tu última oportunidad.\n\nSi continúas, SE PERDERÁN TODOS LOS DATOS.\n\n¿Estás ABSOLUTAMENTE SEGURO?');
+            
+            if (!segundaConfirmacion) return;
+            
+            try {
+                // 1. Limpiar caché local
+                DB.cache = {};
+                
+                // 2. Lista de colecciones a borrar
+                const collections = [
+                    'users', 
+                    'auxiliares', 
+                    'zodiac', 
+                    'barcos', 
+                    'sesiones', 
+                    'asistencias', 
+                    'satisfaccion', 
+                    'incidencias', 
+                    'asistentesEscuelas'
+                ];
+                
+                // 3. Borrar cada colección de Firebase
+                for (const collectionName of collections) {
+                    await db.collection('data').doc(collectionName).delete();
+                }
+                
+                alert('✅ Todos los datos han sido borrados.\n\nLa aplicación se recargará ahora para empezar desde cero.');
+                
+                // 4. Recargar página para empezar limpio
+                location.reload();
+                
+            } catch (error) {
+                console.error('Error al resetear:', error);
+                alert('❌ Error al borrar datos: ' + error.message);
+            }
+        };
+
+        // FUNCIÓN PARA LIMPIAR CACHÉ Y SINCRONIZAR
+        window.limpiarCacheYSincronizar = function() {
+            const confirmacion = confirm('🔄 Limpiar Caché Local\n\nEsto forzará la recarga de todos los datos desde Firebase.\n\nNo se perderán datos, solo se limpiará la caché local.\n\n¿Continuar?');
+            
+            if (!confirmacion) return;
+            
+            // Limpiar caché
+            DB.cache = {};
+            
+            alert('✅ Caché limpiada.\n\nLa aplicación se recargará para sincronizar con Firebase.');
+            
+            // Recargar página
+            location.reload();
+        };
+
+
         window.changeView = function(view) {
             currentView = view;
+            // Resetear vista del timonel cuando se accede al dashboard
+            if (view === 'dashboardTimonel') {
+                vistaTimonelActual = 'hoy';
+            }
             render();
         };
 
@@ -3567,6 +4613,60 @@
                 }
             }
             
+            // AUTO-CARGAR asistentes de escuelas de menores al cambiar tipo
+            const escuelasMenores = ['Benjamín', 'Alevín', 'Cadete', 'Juvenil'];
+            if (escuelasMenores.includes(tipoSesion) && !editingSesionId) {
+                const todosAsistentes = DB.get('asistentesEscuelas') || [];
+                const asistentesEscuela = todosAsistentes.filter(a => a.escuela === tipoSesion);
+                
+                // Limpiar participantes actuales y cargar los de la escuela
+                participantesSesion = [];
+                asistentesEscuela.forEach(asistente => {
+                    participantesSesion.push({
+                        nombre: asistente.nombre,
+                        fechaNacimiento: asistente.fechaNacimiento,
+                        sabeNadar: asistente.sabeNadar || 'si',
+                        necesidades: '',
+                        dni: '',
+                        telefono: asistente.telefonoAsistente || '',
+                        tutor: asistente.nombreTutor || ''
+                    });
+                });
+                
+                // Actualizar vista de participantes
+                actualizarListaParticipantes();
+            }
+            
+            // AUTO-ASIGNAR Javier Reina como timonel en las 8 ESCUELAS
+            const todasEscuelas = [
+                'Escuela BCS',
+                'Escuela Sensoriales', 
+                'Escuela Físicos/Intelectuales',
+                'Escuela ACS',
+                'Benjamín',
+                'Alevín',
+                'Cadete',
+                'Juvenil'
+            ];
+            
+            if (todasEscuelas.includes(tipoSesion)) {
+                const users = DB.get('users') || [];
+                const javiTimonel = users.find(u => 
+                    u.nombre.toLowerCase().indexOf('javier reina') >= 0 || 
+                    u.nombre.toLowerCase().indexOf('javi reina') >= 0
+                );
+                
+                if (javiTimonel) {
+                    // Seleccionar Javier Reina como timonel
+                    selectTimonel.value = javiTimonel.id;
+                    
+                    // Marcar opción como seleccionada
+                    Array.from(selectTimonel.options).forEach(opt => {
+                        opt.selected = (parseInt(opt.value) === javiTimonel.id);
+                    });
+                }
+            }
+            
             verificarPersonalAdicional();
         };
 
@@ -3575,6 +4675,11 @@
             const selectTimonel = document.getElementById('sTimonel');
             const alerta = document.getElementById('alertaBarcosTimoneles');
             
+            // VALIDACIÓN DESACTIVADA - Siempre ocultar alerta
+            alerta.classList.add('hidden');
+            return true;
+            
+            /*
             // Obtener opciones seleccionadas (excluyendo la opción placeholder)
             const barcosSeleccionados = Array.from(selectBarco.selectedOptions).filter(opt => opt.value !== '');
             const timonelesSeleccionados = Array.from(selectTimonel.selectedOptions).filter(opt => opt.value !== '');
@@ -3587,6 +4692,7 @@
                 alerta.classList.add('hidden');
                 return true;
             }
+            */
         };
 
         window.verificarPersonalAdicional = function() {
@@ -3599,15 +4705,31 @@
             const selectAuxiliar2 = document.getElementById('sAuxiliar2');
             
             // VALIDACIÓN CRÍTICA: Timonel y Barco son obligatorios solo si hay participantes (excepto tipo Tierra)
+            // EXCEPCIÓN: Escuelas de menores con Kayak no requieren timonel
             if (tipoSesion !== 'Tierra') {
                 const labelTimonel = selectTimonel.previousElementSibling;
                 const labelBarco = selectBarco.previousElementSibling;
                 
+                // Detectar si es Kayak en escuela de menores
+                const barcosSeleccionados = Array.from(selectBarco.selectedOptions).filter(opt => opt.value !== '');
+                const hayKayak = barcosSeleccionados.some(opt => opt.text.toLowerCase().indexOf('kayak') >= 0);
+                const escuelasMenores = ['Benjamín', 'Alevín', 'Cadete', 'Juvenil'];
+                const esEscuelaMenorConKayak = escuelasMenores.indexOf(tipoSesion) >= 0 && hayKayak;
+                
                 if (numParticipantes > 0) {
-                    selectTimonel.required = true;
-                    selectBarco.required = true;
-                    if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado (Obligatorio)';
-                    if (labelBarco) labelBarco.textContent = 'Barco Asignado (Obligatorio)';
+                    if (esEscuelaMenorConKayak) {
+                        // Kayak: Timonel NO obligatorio, Barco sí
+                        selectTimonel.required = false;
+                        selectBarco.required = true;
+                        if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado (No necesario con Kayak)';
+                        if (labelBarco) labelBarco.textContent = 'Barco Asignado (Obligatorio)';
+                    } else {
+                        // Otros casos: Ambos obligatorios
+                        selectTimonel.required = true;
+                        selectBarco.required = true;
+                        if (labelTimonel) labelTimonel.textContent = 'Timonel Asignado (Obligatorio)';
+                        if (labelBarco) labelBarco.textContent = 'Barco Asignado (Obligatorio)';
+                    }
                 } else {
                     selectTimonel.required = false;
                     selectBarco.required = false;
@@ -3827,6 +4949,7 @@
             });
             
             participantesSesion = [...sesion.participantes];
+            
             actualizarCamposSesion();
             
             // Cargar auxiliar y zodiac si existen
@@ -4271,15 +5394,18 @@
             const barcosSeleccionados = Array.from(selectBarco.selectedOptions).filter(opt => opt.value !== '').map(opt => parseInt(opt.value));
             const timonelesSeleccionados = Array.from(selectTimonel.selectedOptions).filter(opt => opt.value !== '').map(opt => parseInt(opt.value));
             
+            // VALIDACIÓN DESACTIVADA - Permite guardar con cualquier combinación
+            /*
             if (barcosSeleccionados.length !== timonelesSeleccionados.length) {
                 alert('⚠️ Debes seleccionar el mismo número de barcos y timoneles.\n\n' +
                     'Barcos seleccionados: ' + barcosSeleccionados.length + '\n' +
                     'Timoneles seleccionados: ' + timonelesSeleccionados.length);
                 return;
             }
+            */
             
             if (barcosSeleccionados.length === 0) {
-                alert('⚠️ Debes seleccionar al menos un barco y un timonel');
+                alert('⚠️ Debes seleccionar al menos un barco');
                 return;
             }
             
@@ -4330,7 +5456,13 @@
             // Ya tenemos tipoSesion de arriba
             
             // VALIDACIÓN: Si hay participantes y no es tipo Tierra, debe haber al menos un timonel
-            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && timonelesSeleccionados.length === 0) {
+            // EXCEPCIÓN: Escuelas de menores con Kayak no necesitan timonel
+            const barcosTexto = Array.from(selectBarco.selectedOptions).filter(opt => opt.value !== '').map(opt => opt.text);
+            const hayKayak = barcosTexto.some(nombre => nombre.toLowerCase().indexOf('kayak') >= 0);
+            const escuelasMenores = ['Benjamín', 'Alevín', 'Cadete', 'Juvenil'];
+            const esEscuelaMenorConKayak = escuelasMenores.indexOf(tipoSesion) >= 0 && hayKayak;
+            
+            if (participantesSesion.length > 0 && tipoSesion !== 'Tierra' && !esEscuelaMenorConKayak && timonelesSeleccionados.length === 0) {
                 alert('⚠️ Debes asignar al menos un timonel cuando hay participantes registrados');
                 return;
             }
@@ -4387,23 +5519,51 @@
             // Verificar si hay alguna persona asignada a múltiples roles
             for (const [username, data] of Object.entries(usernamesCounted)) {
                 if (data.roles.length > 1) {
-                    alert(`⚠️ ${data.nombre} está asignada a múltiples roles en esta sesión: ${data.roles.join(', ')}.\n\nCada persona solo puede tener un rol por sesión.`);
+                    alert(`⚠️ ERROR: ${data.nombre} está asignado/a a múltiples roles:\n\n${data.roles.join('\n')}\n\nCada persona solo puede tener UN rol por sesión.`);
                     return;
                 }
             }
             
-            // Validar que no haya duplicados de timoneles o auxiliares en la misma hora (solo si tipo no es Tierra)
+            // VALIDACIÓN ADICIONAL: Verificar que timoneles y zodiac no se repitan por ID
+            if (zodiacId && timonelesSeleccionados.includes(zodiacId)) {
+                const z = zodiac.find(zod => zod.id === zodiacId);
+                alert(`⚠️ ERROR: ${z ? z.nombre : 'Esta persona'} no puede ser TIMONEL y ZODIAC al mismo tiempo.\n\nPor favor, selecciona personas diferentes para cada rol.`);
+                return;
+            }
+            if (zodiacId && timonel2Id === zodiacId) {
+                const z = zodiac.find(zod => zod.id === zodiacId);
+                alert(`⚠️ ERROR: ${z ? z.nombre : 'Esta persona'} no puede ser TIMONEL 2 y ZODIAC al mismo tiempo.\n\nPor favor, selecciona personas diferentes para cada rol.`);
+                return;
+            }
+            
+            // Validar que no haya duplicados de timoneles o auxiliares en sesiones que se solapen (60 min duración)
             const sesiones = DB.get('sesiones') || [];
-            const sesionesEnMismaHora = sesiones.filter(s => 
-                s.fecha === fecha && 
-                s.horario === horario && 
+            
+            // Función para verificar si dos sesiones se solapan (cada sesión dura 60 min)
+            function sesionesSeSuperponen(fecha1, hora1, fecha2, hora2) {
+                if (fecha1 !== fecha2) return false;
+                
+                // Convertir horas a minutos desde medianoche
+                const [h1, m1] = hora1.split(':').map(Number);
+                const [h2, m2] = hora2.split(':').map(Number);
+                const inicio1 = h1 * 60 + m1;
+                const fin1 = inicio1 + 60; // 60 minutos de duración
+                const inicio2 = h2 * 60 + m2;
+                const fin2 = inicio2 + 60;
+                
+                // Verificar solapamiento
+                return (inicio1 < fin2 && fin1 > inicio2);
+            }
+            
+            const sesionesSolapadas = sesiones.filter(s => 
+                sesionesSeSuperponen(s.fecha, s.horario, fecha, horario) &&
                 (!editingSesionId || s.id !== editingSesionId)
             );
             
             // Verificar timoneles (solo si no es tipo Tierra)
             if (tipoSesion !== 'Tierra' && timonelesSeleccionados.length > 0) {
                 for (const timonelId of timonelesSeleccionados) {
-                    const timonelesDuplicados = sesionesEnMismaHora.filter(s => {
+                    const timonelesDuplicados = sesionesSolapadas.filter(s => {
                         // Verificar en timonelIds (nuevo formato) o timonelId/timonel2Id (formato antiguo)
                         const timonelesEnSesion = s.timonelIds || [s.timonelId, s.timonel2Id].filter(Boolean);
                         return timonelesEnSesion.includes(timonelId);
@@ -4411,24 +5571,35 @@
                     
                     if (timonelesDuplicados.length > 0) {
                         const timonel = users.find(u => u.id === timonelId);
-                        alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
+                        const sesionConflicto = timonelesDuplicados[0];
+                        alert(`⚠️ ERROR: El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión que se solapa:\n\nFecha: ${sesionConflicto.fecha}\nHora: ${sesionConflicto.horario} - ${agregarMinutos(sesionConflicto.horario, 60)}\nTipo: ${sesionConflicto.tipo}\n\nLas sesiones duran 60 minutos y no pueden solaparse.`);
                         return;
                     }
                 }
                 
                 // Verificar timonel2 si existe
                 if (timonel2Id) {
-                    const timonelesDuplicados = sesionesEnMismaHora.filter(s => {
+                    const timonelesDuplicados = sesionesSolapadas.filter(s => {
                         const timonelesEnSesion = s.timonelIds || [s.timonelId, s.timonel2Id].filter(Boolean);
                         return timonelesEnSesion.includes(timonel2Id);
                     });
                     
                     if (timonelesDuplicados.length > 0) {
                         const timonel = users.find(u => u.id === timonel2Id);
-                        alert(`⚠️ El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
+                        const sesionConflicto = timonelesDuplicados[0];
+                        alert(`⚠️ ERROR: El timonel ${timonel ? timonel.nombre : ''} ya está asignado en otra sesión que se solapa:\n\nFecha: ${sesionConflicto.fecha}\nHora: ${sesionConflicto.horario} - ${agregarMinutos(sesionConflicto.horario, 60)}\nTipo: ${sesionConflicto.tipo}\n\nLas sesiones duran 60 minutos y no pueden solaparse.`);
                         return;
                     }
                 }
+            }
+            
+            // Función auxiliar para añadir minutos a una hora
+            function agregarMinutos(hora, minutos) {
+                const [h, m] = hora.split(':').map(Number);
+                const totalMinutos = h * 60 + m + minutos;
+                const nuevaHora = Math.floor(totalMinutos / 60) % 24;
+                const nuevosMinutos = totalMinutos % 60;
+                return `${String(nuevaHora).padStart(2, '0')}:${String(nuevosMinutos).padStart(2, '0')}`;
             }
             
             // Verificar auxiliares
@@ -4440,15 +5611,16 @@
                 
                 if (auxiliaresDuplicados.length > 0) {
                     const auxiliarDup = auxiliares.find(a => a.id === auxiliarId || a.id === auxiliar2Id);
-                    alert(`⚠️ El auxiliar ${auxiliarDup ? auxiliarDup.nombre : ''} ya está asignado en otra sesión a la misma hora (${horario})`);
+                    const sesionConflicto = auxiliaresDuplicados[0];
+                    alert(`⚠️ ERROR: El auxiliar ${auxiliarDup ? auxiliarDup.nombre : ''} ya está asignado en otra sesión que se solapa:\n\nFecha: ${sesionConflicto.fecha}\nHora: ${sesionConflicto.horario} - ${agregarMinutos(sesionConflicto.horario, 60)}\nTipo: ${sesionConflicto.tipo}\n\nLas sesiones duran 60 minutos y no pueden solaparse.`);
                     return;
                 }
             }
 
-            // Validar que los barcos no estén ocupados en la misma fecha y hora (solo si tipo no es Tierra)
+            // Validar que los barcos no estén ocupados en sesiones solapadas (solo si tipo no es Tierra)
             if (tipoSesion !== 'Tierra' && barcosSeleccionados.length > 0) {
                 for (const barcoId of barcosSeleccionados) {
-                    const barcoOcupado = sesionesEnMismaHora.find(s => {
+                    const barcoOcupado = sesionesSolapadas.find(s => {
                         // Verificar en barcoIds (nuevo formato) o barcoId (formato antiguo)
                         const barcosEnSesion = s.barcoIds || (s.barcoId ? [s.barcoId] : []);
                         return barcosEnSesion.includes(barcoId);
@@ -4457,7 +5629,7 @@
                     if (barcoOcupado) {
                         const barcos = DB.get('barcos') || [];
                         const barco = barcos.find(b => b.id === barcoId);
-                        alert(`⚠️ El barco "${barco ? barco.nombre : ''}" ya está asignado a otra sesión el ${new Date(fecha).toLocaleDateString('es-ES')} a las ${horario}`);
+                        alert(`⚠️ ERROR: El barco "${barco ? barco.nombre : ''}" ya está asignado en otra sesión que se solapa:\n\nFecha: ${barcoOcupado.fecha}\nHora: ${barcoOcupado.horario} - ${agregarMinutos(barcoOcupado.horario, 60)}\nTipo: ${barcoOcupado.tipo}\n\nLas sesiones duran 60 minutos y no pueden solaparse.`);
                         return;
                     }
                 }
